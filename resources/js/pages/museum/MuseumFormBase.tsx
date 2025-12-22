@@ -9,6 +9,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import LocationPicker from '@/components/LocationPicker';
+import MDEditor from '@uiw/react-md-editor';
+import rehypeRaw from "rehype-raw";
+import { useAppearance } from '@/hooks/use-appearance';
 
 interface OverlayType {
     id: number;
@@ -39,7 +42,13 @@ const defaultValues = {
     cta_label: '',
     align: 'left',
     latitude: null as number | null,
-    longitude: null as number | null
+    longitude: null as number | null,
+    address: '',
+    opening_hours: '',
+    contact_person: '',
+    distance_from_city_center: '',
+    ticket_price: '',
+    google_maps_link: '',
 };
 
 export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
@@ -52,6 +61,25 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
     const [previewOpen, setPreviewOpen] = useState(false);
     const [uploadingBg, setUploadingBg] = useState(false);
     const [bgError, setBgError] = useState<string | null>(null);
+
+    // Theme handling for editor
+    const { appearance } = useAppearance();
+    const [editorTheme, setEditorTheme] = useState<'light' | 'dark'>('light');
+
+    useEffect(() => {
+        const checkTheme = () => {
+            const isDark = appearance === 'dark' || (appearance === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            setEditorTheme(isDark ? 'dark' : 'light');
+        };
+        checkTheme();
+
+        if (appearance === 'system') {
+            const media = window.matchMedia('(prefers-color-scheme: dark)');
+            media.addEventListener('change', checkTheme);
+            return () => media.removeEventListener('change', checkTheme);
+        }
+    }, [appearance]);
+
     // Overlays state
     const [overlayList, setOverlayList] = useState<OverlayType[]>(overlays.map(o => ({ ...o, __dirty: false })));
     // overlay editor now inline (no dialog)
@@ -220,11 +248,11 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
         if (overlay.__deleted) {
             // process delete only for existing overlay
             if (overlay.id > 0) {
-                        router.post(route('museum.overlays.delete', overlay.id), {}, {
-                            onError: () => toast.error('Gagal hapus overlay'),
-                            onSuccess: () => { toast.success('Overlay dihapus'); },
-                            preserveScroll: true,
-                        });
+                router.post(route('museum.overlays.delete', overlay.id), {}, {
+                    onError: () => toast.error('Gagal hapus overlay'),
+                    onSuccess: () => { toast.success('Overlay dihapus'); },
+                    preserveScroll: true,
+                });
             }
             setOverlayList(prev => prev.filter(o => o.id !== id)); // local immediate feedback; server will refresh props
             return;
@@ -236,24 +264,24 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
             if (overlay.position_horizontal) formData.append('position_horizontal', overlay.position_horizontal);
             if (overlay.position_vertical) formData.append('position_vertical', overlay.position_vertical);
             if (overlay.object_fit) formData.append('object_fit', overlay.object_fit);
-                    router.post(route('museum.overlays.store', item.id), formData, {
-                        onError: () => toast.error('Gagal simpan overlay baru'),
-                        onSuccess: () => toast.success('Overlay dibuat'),
-                        preserveScroll: true,
-                        forceFormData: true,
-                    });
+            router.post(route('museum.overlays.store', item.id), formData, {
+                onError: () => toast.error('Gagal simpan overlay baru'),
+                onSuccess: () => toast.success('Overlay dibuat'),
+                preserveScroll: true,
+                forceFormData: true,
+            });
             // optimistic local reset (actual overlay data will re-sync when page props refresh)
             setOverlayList(prev => prev.map(o => o.id === overlay.id ? { ...o, __unsaved: false, __dirty: false } : o));
             dirtyRef.current.delete(id);
         } else if (overlay.__dirty) {
-                    router.post(route('museum.overlays.update', overlay.id), {
+            router.post(route('museum.overlays.update', overlay.id), {
                 position_horizontal: overlay.position_horizontal,
                 position_vertical: overlay.position_vertical,
                 object_fit: overlay.object_fit
             }, {
-                        onError: () => toast.error('Gagal update overlay'),
-                        onSuccess: () => toast.success('Overlay disimpan'),
-                        preserveScroll: true,
+                onError: () => toast.error('Gagal update overlay'),
+                onSuccess: () => toast.success('Overlay disimpan'),
+                preserveScroll: true,
             });
             setOverlayList(prev => prev.map(o => o.id === overlay.id ? { ...o, __dirty: false } : o));
             dirtyRef.current.delete(id);
@@ -315,7 +343,19 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
                     {data.label && <span className='text-xs uppercase tracking-wider bg-white/20 px-2 py-1 rounded'>{data.label}</span>}
                     <h1 className='text-7xl font-extrabold leading-none'>{data.title || 'Judul Belum Diisi'}</h1>
                     {data.subtitle && <h2 className='text-lg opacity-80'>{data.subtitle}</h2>}
-                    {data.content && <p className='text-sm leading-relaxed whitespace-pre-line'>{data.content}</p>}
+                    {data.content && (
+                        <div className='text-sm leading-relaxed whitespace-pre-line prose prose-invert max-w-none' data-color-mode="dark">
+                            <MDEditor.Markdown
+                                source={data.content}
+                                rehypePlugins={[rehypeRaw]}
+                                style={{ backgroundColor: 'transparent', color: 'white', fontSize: '0.875rem' }}
+                                components={{
+                                    strong: ({ children }) => <strong className="font-extrabold text-white">{children}</strong>,
+                                    b: ({ children }) => <b className="font-extrabold text-white">{children}</b>
+                                }}
+                            />
+                        </div>
+                    )}
                     {(data.cta_label || data.cta_href) && (
                         <a href={data.cta_href || '#'} className='inline-block bg-transparent border-[2px] mt-3 border-white px-4 py-2 rounded shadow hover:opacity-90 transition'>
                             {data.cta_label || 'Lanjut'}
@@ -366,8 +406,50 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
                         <Input value={data.subtitle} onChange={e => setData('subtitle', e.target.value)} />
                     </div>
                     <div className='space-y-2'>
-                        <Label className='text-sm font-medium'>Content</Label>
-                        <Textarea value={data.content} rows={4} onChange={e => setData('content', e.target.value)} />
+                        <Label className='text-sm font-medium'>Content (Markdown & HTML Supported for Colors)</Label>
+                        <div data-color-mode={editorTheme}>
+                            <MDEditor
+                                value={data.content}
+                                onChange={(val) => setData('content', val || '')}
+                                height={400}
+                                preview="edit"
+                                previewOptions={{
+                                    rehypePlugins: [[rehypeRaw]],
+                                }}
+                            />
+                        </div>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label className='text-sm font-medium'>Alamat Lengkap</Label>
+                        <Textarea value={data.address} onChange={e => setData('address', e.target.value)} />
+                        {errors.address && <p className='text-xs text-red-500'>{errors.address}</p>}
+                    </div>
+                    <div className='grid grid-cols-2 gap-4'>
+                        <div className='space-y-2'>
+                            <Label className='text-sm font-medium'>Jam Buka / Tutup</Label>
+                            <Input value={data.opening_hours} onChange={e => setData('opening_hours', e.target.value)} placeholder="08:00 - 15:00" />
+                            {errors.opening_hours && <p className='text-xs text-red-500'>{errors.opening_hours}</p>}
+                        </div>
+                        <div className='space-y-2'>
+                            <Label className='text-sm font-medium'>Contact Person</Label>
+                            <Input value={data.contact_person} onChange={e => setData('contact_person', e.target.value)} />
+                            {errors.contact_person && <p className='text-xs text-red-500'>{errors.contact_person}</p>}
+                        </div>
+                        <div className='space-y-2'>
+                            <Label className='text-sm font-medium'>Jarak dari Pusat Kota</Label>
+                            <Input value={data.distance_from_city_center} onChange={e => setData('distance_from_city_center', e.target.value)} />
+                            {errors.distance_from_city_center && <p className='text-xs text-red-500'>{errors.distance_from_city_center}</p>}
+                        </div>
+                        <div className='space-y-2'>
+                            <Label className='text-sm font-medium'>Range Harga</Label>
+                            <Input value={data.ticket_price} onChange={e => setData('ticket_price', e.target.value)} />
+                            {errors.ticket_price && <p className='text-xs text-red-500'>{errors.ticket_price}</p>}
+                        </div>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label className='text-sm font-medium'>Link Google Maps</Label>
+                        <Input value={data.google_maps_link} onChange={e => setData('google_maps_link', e.target.value)} placeholder="https://maps.google.com/..." />
+                        {errors.google_maps_link && <p className='text-xs text-red-500'>{errors.google_maps_link}</p>}
                     </div>
                     <div className='space-y-2'>
                         <Label className='text-sm font-medium'>Background Image</Label>

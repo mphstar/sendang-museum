@@ -5,45 +5,37 @@ import React from 'react';
 
 interface HeaderProps {
   active: number;
-  onJump: (i:number)=>void;
+  onJump: (i: number) => void;
   sections: SectionData[];
   brand?: string;
+  subtitle?: string;
   backHref?: string;
   actions?: React.ReactNode;
 }
 
-export function Header({active,onJump,sections,brand,backHref,actions}:HeaderProps){
+export function Header({ active, onJump, sections, brand, subtitle, backHref, actions }: HeaderProps) {
   const label = brand || 'Education';
   return (
-  <div className="fixed w-full top-0 z-[60] px-3 md:px-8 py-3 border-b border-white/10">
+    <div className="fixed w-full top-0 z-[60] px-3 md:px-8 py-3 border-b border-white/10">
       {/* Mobile layout */}
-      <div className="md:hidden relative flex items-center h-10">
-        {/* Left: back button or logo when no back */}
-        <div className="flex items-center">
-          {backHref ? (
+      <div className="md:hidden flex items-center justify-between h-10 w-full">
+        {/* Left: Brand name (and back button if exists) */}
+        <div className="flex items-center gap-3">
+          {backHref && (
             <Link href={backHref} className="group inline-flex items-center gap-1.5 px-2 h-9 rounded-md border border-white/15 bg-white/5 hover:bg-white/15 text-white/80 hover:text-white text-xs font-medium transition" aria-label="Kembali">
               <svg className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
             </Link>
-          ) : (
-            <a href="#intro" onClick={(e)=>{e.preventDefault(); onJump(0);}} className="inline-flex items-center">
-              <Logo />
-            </a>
           )}
+          <div className="flex flex-col">
+            <span className="text-white font-semibold tracking-wide text-sm leading-tight">{label}</span>
+            {subtitle && <span className="text-[10px] text-white/70 tracking-wide">{subtitle}</span>}
+          </div>
         </div>
-        {/* Center: title */}
-        <div className="absolute inset-x-0 flex justify-center pointer-events-none px-12">
-          <span className="pointer-events-auto max-w-[65%] truncate text-center text-white font-semibold tracking-wide text-sm">{label}</span>
-        </div>
-        {/* Right: logo if back exists, otherwise spacer */}
-        <div className="ml-auto flex items-center">
-          {backHref ? (
-            <a href="#intro" onClick={(e)=>{e.preventDefault(); onJump(0);}} className="inline-flex items-center">
-              <Logo />
-            </a>
-          ) : (
-            <span className="inline-block w-9" />
-          )}
-        </div>
+
+        {/* Right: Logos */}
+        <a href="#intro" onClick={(e) => { e.preventDefault(); onJump(0); }} className="flex items-center scale-75 origin-right">
+          <Logo />
+        </a>
       </div>
 
       {/* Desktop layout */}
@@ -54,9 +46,12 @@ export function Header({active,onJump,sections,brand,backHref,actions}:HeaderPro
             <span className="hidden sm:inline">Kembali</span>
           </Link>
         )}
-        <a href="#intro" className="flex items-center gap-2 group" onClick={(e)=>{e.preventDefault(); onJump(0);}}>
+        <a href="#intro" className="flex items-center gap-3 group" onClick={(e) => { e.preventDefault(); onJump(0); }}>
           <Logo />
-          <span className="text-white font-semibold tracking-wide text-base group-hover:opacity-90">{label}</span>
+          <div className="flex flex-col">
+            <span className="text-white font-semibold tracking-wide text-base group-hover:opacity-90 leading-tight">{label}</span>
+            {subtitle && <span className="text-xs text-white/70 tracking-wide group-hover:opacity-90">{subtitle}</span>}
+          </div>
         </a>
         {/* <nav className="flex gap-5 text-sm">
           {sections.map((s,i)=>{

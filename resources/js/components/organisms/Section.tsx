@@ -42,32 +42,32 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
             {/* Black background layer to prevent unwanted images showing through */}
             <div className="absolute inset-0 -z-20 bg-black" />
             {bg && (
-                <motion.div 
-                    className="absolute inset-0 -z-10 bg-cover bg-center bg-no-repeat bg-black" 
-                    style={{ backgroundImage: `url(${bg})` }} 
+                <motion.div
+                    className="absolute inset-0 -z-10 bg-cover bg-center bg-no-repeat bg-black"
+                    style={{ backgroundImage: `url(${bg})` }}
                     initial={{ scale: 1.05 }}
                     whileInView={{ scale: 1 }}
                     exit={{ scale: 1.05 }}
                     viewport={{ amount: 0.3, once: false }}
-                    transition={{ 
-                        duration: 1.2, 
+                    transition={{
+                        duration: 1.2,
                         ease: "easeOut"
                     }}
-                    role="img" 
-                    aria-label={title} 
+                    role="img"
+                    aria-label={title}
                 />
             )}
             <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/60 via-black/30 to-black/60" />
             {overlays && overlays.length > 0 && (
-                <motion.div 
-                    key={cycle} 
-                    className="absolute inset-0 -z-[8] pointer-events-none select-none overlay-container" 
+                <motion.div
+                    key={cycle}
+                    className="absolute inset-0 -z-[8] pointer-events-none select-none overlay-container"
                     initial={{ scale: 1.08 }}
                     whileInView={{ scale: 1 }}
                     exit={{ scale: 1.08 }}
                     viewport={{ amount: 0.3, once: false }}
-                    transition={{ 
-                        duration: 1.2, 
+                    transition={{
+                        duration: 1.2,
                         ease: "easeOut"
                     }}
                 >
@@ -75,34 +75,34 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
                         // Placement logic using position_horizontal and position_vertical
                         let stylePos: React.CSSProperties = {};
                         if (overlay.position_horizontal && overlay.position_vertical) {
-                          if (overlay.position_horizontal === 'center' && overlay.position_vertical === 'center') {
-                            stylePos = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-                          } else {
-                            if (overlay.position_vertical === 'top') stylePos.top = 0;
-                            if (overlay.position_vertical === 'center') stylePos.top = '50%';
-                            if (overlay.position_vertical === 'bottom') stylePos.bottom = 0;
-                            if (overlay.position_horizontal === 'left') stylePos.left = 0;
-                            if (overlay.position_horizontal === 'center') stylePos.left = '50%';
-                            if (overlay.position_horizontal === 'right') stylePos.right = 0;
-                            if (overlay.position_horizontal === 'center' && overlay.position_vertical !== 'center') stylePos.transform = 'translateX(-50%)';
-                            if (overlay.position_vertical === 'center' && overlay.position_horizontal !== 'center') stylePos.transform = 'translateY(-50%)';
-                          }
+                            if (overlay.position_horizontal === 'center' && overlay.position_vertical === 'center') {
+                                stylePos = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+                            } else {
+                                if (overlay.position_vertical === 'top') stylePos.top = 0;
+                                if (overlay.position_vertical === 'center') stylePos.top = '50%';
+                                if (overlay.position_vertical === 'bottom') stylePos.bottom = 0;
+                                if (overlay.position_horizontal === 'left') stylePos.left = 0;
+                                if (overlay.position_horizontal === 'center') stylePos.left = '50%';
+                                if (overlay.position_horizontal === 'right') stylePos.right = 0;
+                                if (overlay.position_horizontal === 'center' && overlay.position_vertical !== 'center') stylePos.transform = 'translateX(-50%)';
+                                if (overlay.position_vertical === 'center' && overlay.position_horizontal !== 'center') stylePos.transform = 'translateY(-50%)';
+                            }
                         }
                         return (
-                          <div
-                            key={i}
-                            style={{
-                              position: 'absolute',
-                              backgroundImage: `url(${overlay.url})`,
-                              backgroundRepeat: 'no-repeat',
-                              backgroundPosition: 'center',
-                              backgroundSize: overlay.object_fit || 'cover',
-                              width: '180px', height: '180px',
-                              ...stylePos,
-                              willChange: 'transform',
-                            }}
-                            aria-hidden="true"
-                          />
+                            <div
+                                key={i}
+                                style={{
+                                    position: 'absolute',
+                                    backgroundImage: `url(${overlay.url})`,
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundPosition: 'center',
+                                    backgroundSize: overlay.object_fit || 'cover',
+                                    width: '180px', height: '180px',
+                                    ...stylePos,
+                                    willChange: 'transform',
+                                }}
+                                aria-hidden="true"
+                            />
                         );
                     })}
                 </motion.div>

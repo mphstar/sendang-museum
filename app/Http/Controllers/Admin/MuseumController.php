@@ -51,6 +51,12 @@ class MuseumController extends Controller
             'align' => 'required|in:left,right',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
+            'address' => 'nullable|string',
+            'opening_hours' => 'nullable|string|max:255',
+            'contact_person' => 'nullable|string|max:255',
+            'distance_from_city_center' => 'nullable|string|max:255',
+            'ticket_price' => 'nullable|string|max:255',
+            'google_maps_link' => 'nullable|url|max:500',
         ]);
 
         if (empty($validated['slug'])) {
@@ -59,7 +65,7 @@ class MuseumController extends Controller
             $original = $validated['slug'];
             $i = 1;
             while (Museum::where('slug', $validated['slug'])->exists()) {
-                $validated['slug'] = $original.'-'.$i++;
+                $validated['slug'] = $original . '-' . $i++;
             }
         }
 
@@ -69,9 +75,9 @@ class MuseumController extends Controller
             $dir = public_path('uploads/museum/backgrounds');
             if (!is_dir($dir)) mkdir($dir, 0775, true);
             $ext = $file->getClientOriginalExtension();
-            $filename = now()->format('Ymd_His').'_'.Str::random(8).'.'.$ext;
+            $filename = now()->format('Ymd_His') . '_' . Str::random(8) . '.' . $ext;
             $file->move($dir, $filename);
-            $validated['background_url'] = asset('uploads/museum/backgrounds/'.$filename);
+            $validated['background_url'] = asset('uploads/museum/backgrounds/' . $filename);
         }
 
         unset($validated['background_image']);
@@ -86,7 +92,7 @@ class MuseumController extends Controller
             'title' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
             'subtitle' => 'nullable|string|max:255',
-            'slug' => 'required|string|max:255|unique:museum,slug,'.$museum->id,
+            'slug' => 'required|string|max:255|unique:museum,slug,' . $museum->id,
             'content' => 'nullable|string',
             'background_url' => 'nullable|string|max:255',
             'background_image' => 'nullable|image',
@@ -95,6 +101,12 @@ class MuseumController extends Controller
             'align' => 'required|in:left,right',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
+            'address' => 'nullable|string',
+            'opening_hours' => 'nullable|string|max:255',
+            'contact_person' => 'nullable|string|max:255',
+            'distance_from_city_center' => 'nullable|string|max:255',
+            'ticket_price' => 'nullable|string|max:255',
+            'google_maps_link' => 'nullable|url|max:500',
         ]);
 
         if ($request->hasFile('background_image')) {
@@ -102,9 +114,9 @@ class MuseumController extends Controller
             $dir = public_path('uploads/museum/backgrounds');
             if (!is_dir($dir)) mkdir($dir, 0775, true);
             $ext = $file->getClientOriginalExtension();
-            $filename = now()->format('Ymd_His').'_'.Str::random(8).'.'.$ext;
+            $filename = now()->format('Ymd_His') . '_' . Str::random(8) . '.' . $ext;
             $file->move($dir, $filename);
-            $validated['background_url'] = asset('uploads/museum/backgrounds/'.$filename);
+            $validated['background_url'] = asset('uploads/museum/backgrounds/' . $filename);
         }
         unset($validated['background_image']);
 

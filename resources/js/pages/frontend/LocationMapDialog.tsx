@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { MapPin, Navigation2, ExternalLink } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 interface LocationMapDialogProps {
@@ -8,14 +10,18 @@ interface LocationMapDialogProps {
   latitude: number;
   longitude: number;
   museumName: string;
+  address?: string;
+  googleMapsLink?: string;
 }
 
-export default function LocationMapDialog({ 
-  isOpen, 
-  onClose, 
-  latitude, 
-  longitude, 
-  museumName 
+export default function LocationMapDialog({
+  isOpen,
+  onClose,
+  latitude,
+  longitude,
+  museumName,
+  address,
+  googleMapsLink
 }: LocationMapDialogProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -28,7 +34,6 @@ export default function LocationMapDialog({
 
     const loadMap = async () => {
       try {
-        // Dynamically import React Leaflet components
         const [
           { MapContainer, TileLayer, Marker, Popup },
           L
@@ -39,7 +44,6 @@ export default function LocationMapDialog({
 
         if (!mounted) return;
 
-        // Configure Leaflet icons
         const iconRetinaUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png';
         const iconUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png';
         const shadowUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png';
@@ -51,31 +55,28 @@ export default function LocationMapDialog({
           shadowUrl,
         });
 
-        setLeafletComponents({
-          MapContainer,
-          TileLayer,
-          Marker,
-          Popup
-        });
+        setLeafletComponents({ MapContainer, TileLayer, Marker, Popup });
         setMapLoaded(true);
       } catch (error) {
         console.error('Error loading map:', error);
-        if (mounted) {
-          setMapError(true);
-        }
+        if (mounted) setMapError(true);
       }
     };
 
     loadMap();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [isOpen]);
+
+  const openGoogleMaps = () => {
+    if (googleMapsLink) {
+      window.open(googleMapsLink, '_blank');
+    } else {
+      window.open(`https://www.google.com/maps?q=${latitude},${longitude}`, '_blank');
+    }
+  };
 
   const renderMap = () => {
     if (!leafletComponents) return null;
-
     const { MapContainer, TileLayer, Marker, Popup } = leafletComponents;
 
     return (
@@ -87,15 +88,13 @@ export default function LocationMapDialog({
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         <Marker position={[latitude, longitude]}>
           <Popup>
-            <div className="text-center">
-              <h3 className="font-semibold">{museumName}</h3>
-              <p className="text-sm text-gray-600">
-                {latitude.toFixed(6)}, {longitude.toFixed(6)}
-              </p>
+            <div className="text-center p-1">
+              <h3 className="font-semibold text-sm text-gray-900">{museumName}</h3>
+              {address && <p className="text-xs text-gray-600 mt-1">{address}</p>}
             </div>
           </Popup>
         </Marker>
@@ -105,18 +104,16 @@ export default function LocationMapDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-[95vw] h-[80vh] p-0 z-[80] dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
-        {/* Scoped dark styles for Leaflet controls/popups */}
+      <DialogContent className="p-0 z-[80] max-w-4xl w-[95vw] h-[85vh] flex flex-col dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+        {/* Leaflet dark mode styles */}
         <style>{`
           .dark .leaflet-container .leaflet-control-attribution {
-            background-color: rgba(17, 24, 39, 0.7);
+            background-color: rgba(17, 24, 39, 0.8);
             color: #e5e7eb;
-            border: 1px solid #374151;
             border-radius: 0.375rem;
-            padding: 2px 6px;
           }
           .dark .leaflet-container .leaflet-control-zoom a {
-            background-color: #111827;
+            background-color: #1f2937;
             color: #e5e7eb;
             border: 1px solid #374151;
           }
@@ -124,19 +121,25 @@ export default function LocationMapDialog({
           .dark .leaflet-container .leaflet-popup-tip {
             background: #1f2937;
             color: #e5e7eb;
-            border: 1px solid #374151;
           }
         `}</style>
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle className="text-xl dark:text-gray-100">
-            Lokasi {museumName}
+
+        {/* Header */}
+        <DialogHeader className="p-4 pb-3 border-b dark:border-gray-700 flex-shrink-0">
+          <DialogTitle className="text-lg font-semibold dark:text-gray-100 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <span className="truncate">{museumName}</span>
           </DialogTitle>
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            Koordinat: {latitude.toFixed(6)}, {longitude.toFixed(6)}
-          </div>
+          {address && (
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{address}</p>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+            {latitude.toFixed(6)}, {longitude.toFixed(6)}
+          </p>
         </DialogHeader>
-        
-        <div className="flex-1 px-6 pb-6">
+
+        {/* Map Container */}
+        <div className="flex-1 p-4 pt-2 min-h-0">
           {!mapLoaded && !mapError && (
             <div className="h-full bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
               <div className="text-center">
@@ -145,7 +148,7 @@ export default function LocationMapDialog({
               </div>
             </div>
           )}
-          
+
           {mapError && (
             <div className="h-full bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
               <div className="text-center">
@@ -154,19 +157,31 @@ export default function LocationMapDialog({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <p className="text-gray-600 dark:text-gray-300 mb-4">Gagal memuat peta</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Koordinat: {latitude.toFixed(6)}, {longitude.toFixed(6)}
-                </p>
+                <p className="text-gray-600 dark:text-gray-300 mb-3">Gagal memuat peta</p>
+                <Button variant="outline" size="sm" onClick={openGoogleMaps} className="gap-2 dark:text-gray-300">
+                  <ExternalLink className="w-4 h-4" />
+                  Buka di Google Maps
+                </Button>
               </div>
             </div>
           )}
-          
+
           {mapLoaded && !mapError && (
-            <div className="h-full" style={{ minHeight: '400px' }}>
+            <div className="h-full rounded-lg overflow-hidden">
               {renderMap()}
             </div>
           )}
+        </div>
+
+        {/* Footer with Google Maps Button */}
+        <div className="flex-shrink-0 p-4 pt-0">
+          <Button
+            onClick={openGoogleMaps}
+            className="w-full gap-2 bg-blue-600 hover:bg-blue-700 dark:text-gray-300"
+          >
+            <Navigation2 className="w-4 h-4" />
+            Buka di Google Maps
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

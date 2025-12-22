@@ -5,6 +5,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import {
+    BarChart3,
     Folder,
     LayoutGrid,
     LucideAlignEndVertical,
@@ -34,6 +35,14 @@ const masterNavItems: NavItem[] = [
         title: 'Museum',
         url: '/museum',
         icon: PackageSearch,
+    },
+];
+
+const reportNavItems: NavItem[] = [
+    {
+        title: 'Statistik Kunjungan',
+        url: '/statistics',
+        icon: BarChart3,
     }
 ];
 
@@ -68,6 +77,7 @@ export function AppSidebar() {
             <SidebarContent>
                 <NavMain items={mainNavItems} />
                 <NavMain title={'Master Data'} items={masterNavItems} />
+                <NavMain title={'Report'} items={reportNavItems} />
             </SidebarContent>
 
             <SidebarFooter>

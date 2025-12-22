@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { MapPin, Info, X, Map, Navigation, Building2, HelpCircle } from 'lucide-react';
+import { MapPin, Info, X, Map, Navigation, Building2, HelpCircle, Clock, Phone, Car, Ticket, ExternalLink } from 'lucide-react';
 import RoomListDialog from './RoomListDialog';
+import MDEditor from '@uiw/react-md-editor';
+import rehypeRaw from 'rehype-raw';
 
 // Dynamic import for Leaflet to avoid SSR issues
 // NOTE: path casing must match actual filesystem path to avoid TS casing conflicts
@@ -18,12 +20,12 @@ interface MuseumInfoSidebarProps {
   onOpenGuide?: () => void;
 }
 
-export default function MuseumInfoSidebar({ 
-  museum, 
-  allRuangan, 
-  activeRuangan, 
-  onRoomChange, 
-  isOpen, 
+export default function MuseumInfoSidebar({
+  museum,
+  allRuangan,
+  activeRuangan,
+  onRoomChange,
+  isOpen,
   onClose,
   onOpenGuide
 }: MuseumInfoSidebarProps) {
@@ -38,7 +40,7 @@ export default function MuseumInfoSidebar({
       icon: Info,
       label: 'Informasi Museum',
       description: 'Detail dan deskripsi museum',
-      onClick: () => setShowMuseumInfo(true),
+      onClick: () => { onClose(); setShowMuseumInfo(true); },
       available: true
     },
     {
@@ -62,7 +64,7 @@ export default function MuseumInfoSidebar({
       icon: MapPin,
       label: 'Peta Lokasi',
       description: 'Lihat lokasi museum di peta',
-      onClick: () => setShowLocationMap(true),
+      onClick: () => { onClose(); setShowLocationMap(true); },
       available: hasCoordinates
     }
   ];
@@ -70,9 +72,8 @@ export default function MuseumInfoSidebar({
   return (
     <>
       {/* Compact Menu Sidebar */}
-      <div className={`fixed left-0 top-0 h-full w-[85vw] sm:w-64 max-w-sm bg-white dark:bg-gray-900 dark:text-gray-100 shadow-2xl transform transition-transform duration-300 z-[120] overscroll-contain touch-pan-y ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <div className={`fixed left-0 top-0 h-full w-[85vw] sm:w-64 max-w-sm bg-white dark:bg-gray-900 dark:text-gray-100 shadow-2xl transform transition-transform duration-300 z-[120] overscroll-contain touch-pan-y ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}>
           <div className="flex items-center justify-between">
@@ -97,29 +98,25 @@ export default function MuseumInfoSidebar({
                 key={index}
                 onClick={item.onClick}
                 disabled={!item.available}
-                className={`w-full p-5 sm:p-4 rounded-lg border text-left transition-all duration-200 ${
-                  item.available
-                    ? 'bg-gray-50 border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-blue-950/40 dark:hover:border-blue-500'
-                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed dark:bg-gray-800/60 dark:border-gray-700'
-                }`}
+                className={`w-full p-5 sm:p-4 rounded-lg border text-left transition-all duration-200 ${item.available
+                  ? 'bg-gray-50 border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-blue-950/40 dark:hover:border-blue-500'
+                  : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed dark:bg-gray-800/60 dark:border-gray-700'
+                  }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`p-3 sm:p-2 rounded-full ${
-                    item.available 
-                      ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' 
-                      : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
-                  }`}>
+                  <div className={`p-3 sm:p-2 rounded-full ${item.available
+                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+                    : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
+                    }`}>
                     <IconComponent className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-sm ${
-                      item.available ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'
-                    }`}>
+                    <p className={`font-medium text-sm ${item.available ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'
+                      }`}>
                       {item.label}
                     </p>
-                    <p className={`text-xs mt-1 ${
-                      item.available ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
-                    }`}>
+                    <p className={`text-xs mt-1 ${item.available ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
+                      }`}>
                       {item.description}
                     </p>
                   </div>
@@ -144,7 +141,7 @@ export default function MuseumInfoSidebar({
 
       {/* Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/30 z-[55]"
           onClick={onClose}
         />
@@ -159,22 +156,29 @@ export default function MuseumInfoSidebar({
               Informasi Museum
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div>
               <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-lg">{museum.title}</h3>
               {museum.subtitle && (
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{museum.subtitle}</p>
               )}
+              {museum.address && (
+                <p className="text-sm text-gray-500 mt-1">{museum.address}</p>
+              )}
             </div>
-            
+
             {museum.content && (
-              <div className="text-sm text-gray-700 dark:text-gray-200">
+              <div className="text-sm text-gray-900 dark:text-gray-200">
                 <p className="font-medium mb-2">Deskripsi:</p>
-                <div 
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: museum.content }}
-                />
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <MDEditor.Markdown
+                    source={museum.content}
+                    rehypePlugins={[rehypeRaw]}
+                    style={{ backgroundColor: 'transparent', color: 'inherit' }}
+                    className="!bg-transparent !text-inherit"
+                  />
+                </div>
               </div>
             )}
 
@@ -190,9 +194,67 @@ export default function MuseumInfoSidebar({
                 </div>
               </div>
             )}
+
+            {/* Info Cards with Icons */}
+            <div className="space-y-3">
+              {museum.opening_hours && (
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-full">
+                    <Clock className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                  </div>
+                  <div>
+                    <span className="font-semibold block text-sm text-gray-800 dark:text-gray-100">Jam Operasional</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{museum.opening_hours}</span>
+                  </div>
+                </div>
+              )}
+              {museum.contact_person && (
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/40 rounded-full">
+                    <Phone className="w-4 h-4 text-green-600 dark:text-green-300" />
+                  </div>
+                  <div>
+                    <span className="font-semibold block text-sm text-gray-800 dark:text-gray-100">Kontak</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{museum.contact_person}</span>
+                  </div>
+                </div>
+              )}
+              {museum.distance_from_city_center && (
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/40 rounded-full">
+                    <Car className="w-4 h-4 text-orange-600 dark:text-orange-300" />
+                  </div>
+                  <div>
+                    <span className="font-semibold block text-sm text-gray-800 dark:text-gray-100">Jarak dari Pusat Kota</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{museum.distance_from_city_center}</span>
+                  </div>
+                </div>
+              )}
+              {museum.ticket_price && (
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-full">
+                    <Ticket className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                  </div>
+                  <div>
+                    <span className="font-semibold block text-sm text-gray-800 dark:text-gray-100">Harga Tiket</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{museum.ticket_price}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          
-          <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
+
+          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t dark:border-gray-700">
+            {museum.google_maps_link && (
+              <Button
+                variant="default"
+                onClick={() => window.open(museum.google_maps_link, '_blank')}
+                className="gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Buka di Google Maps
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setShowMuseumInfo(false)}>
               Tutup
             </Button>
@@ -229,6 +291,8 @@ export default function MuseumInfoSidebar({
             latitude={parseFloat(museum.latitude)}
             longitude={parseFloat(museum.longitude)}
             museumName={museum.title}
+            address={museum.address}
+            googleMapsLink={museum.google_maps_link}
           />
         </React.Suspense>
       )}

@@ -9,6 +9,9 @@ import { ScrollProgress } from "@/components/molecules/ScrollProgress";
 import { ArrowNav } from "@/components/molecules/ArrowNav";
 import { NavDots } from "@/components/molecules/NavDots";
 import { Header } from "@/components/templates/Header";
+import MDEditor from '@uiw/react-md-editor';
+import rehypeRaw from "rehype-raw";
+import { OnboardingDialog } from "@/components/organisms/OnboardingDialog";
 
 // Database interfaces
 interface OverlayType {
@@ -54,32 +57,42 @@ interface Props {
 function convertToSectionData(museumData: MuseumType[]): SectionData[] {
   return museumData.map((item, index) => {
     // Find main ruangan (is_main = true) or fallback to first ruangan
-    const mainRuangan = item.ruangan && item.ruangan.length > 0 
+    const mainRuangan = item.ruangan && item.ruangan.length > 0
       ? item.ruangan.find(r => r.is_main) || item.ruangan[0]
       : null;
 
     console.log('Main ruangan for', item.title, ':', mainRuangan);
-    const ctaHref = mainRuangan 
+    const ctaHref = mainRuangan
       ? `/museum/${item.id}`
       : item.cta_href || "#";
-    
+
     return {
       id: item.slug || `section-${index}`,
       title: item.title,
       navLabel: item.label || item.title.substring(0, 8),
       subtitle: item.subtitle,
       bg: item.background_url,
-    overlays: item.overlays?.map(overlay => ({
-      url: overlay.overlay_url,
-      position_horizontal: overlay.position_horizontal,
-      position_vertical: overlay.position_vertical,
-      object_fit: overlay.object_fit
-    })) || [],
+      overlays: item.overlays?.map(overlay => ({
+        url: overlay.overlay_url,
+        position_horizontal: overlay.position_horizontal,
+        position_vertical: overlay.position_vertical,
+        object_fit: overlay.object_fit
+      })) || [],
       content: (
-        <div className="max-w-xl space-y-4">
-          <p className="text-white/90">
-            {item.content}
-          </p>
+        <div className="max-w-xl space-y-4" data-color-mode="dark">
+          <div className="prose prose-invert">
+            <MDEditor.Markdown
+              source={item.content}
+              rehypePlugins={[rehypeRaw]}
+              style={{ backgroundColor: 'transparent', color: 'rgba(255, 255, 255, 0.9)' }}
+              components={{
+                strong: ({ children }) => <strong className="font-extrabold text-white">{children}</strong>,
+                b: ({ children }) => <b className="font-extrabold text-white">{children}</b>,
+                ul: ({ children }) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
+                li: ({ children }) => <li className="pl-1 text-white/90">{children}</li>
+              }}
+            />
+          </div>
         </div>
       ),
       ctaHref,
@@ -94,10 +107,23 @@ export default function MuseumView({ museum, setting }: Props) {
   // Convert database data to existing SectionData format
   const SECTIONS = convertToSectionData(museum);
   const isRowLayout = setting.style === 'row';
-  
+
+  // ==== Visitor Logging ====
+  useEffect(() => {
+    fetch('/api/visitor-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page_url: window.location.href,
+        referrer: document.referrer || null,
+      }),
+    }).catch(() => { }); // Ignore errors
+  }, []);
+
   // ==== Asset Preloader (background & overlays) ====
   const [progress, setProgress] = useState(0); // 0..1
   const [ready, setReady] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const preloadStarted = useRef(false);
   useEffect(() => {
     if (preloadStarted.current) return; // only once
@@ -110,7 +136,7 @@ export default function MuseumView({ museum, setting }: Props) {
     if (urls.length === 0) { setProgress(1); setReady(true); return; }
     let loaded = 0;
     const start = performance.now();
-    
+
     // Preload with higher priority and proper caching
     const loadPromises = urls.map(u => {
       return new Promise<void>((resolve) => {
@@ -119,7 +145,7 @@ export default function MuseumView({ museum, setting }: Props) {
         img.crossOrigin = 'anonymous';
         img.decoding = 'async';
         img.loading = 'eager';
-        
+
         const done = () => {
           loaded += 1;
           setProgress(loaded / urls.length);
@@ -131,12 +157,12 @@ export default function MuseumView({ museum, setting }: Props) {
           }
           resolve();
         };
-        img.onload = done; 
-        img.onerror = done; 
+        img.onload = done;
+        img.onerror = done;
         img.src = u;
       });
     });
-    
+
     // Force browser to cache these images immediately
     Promise.all(loadPromises).then(() => {
       // Additional caching optimization
@@ -200,16 +226,16 @@ export default function MuseumView({ museum, setting }: Props) {
       // Carousel navigation
       const carousel = carouselRef.current;
       if (!carousel) return;
-      
+
       if (idx < 0) idx = 0;
       if (idx >= SECTIONS.length) idx = SECTIONS.length - 1;
-      
+
       setCurrentSlide(idx);
       setActive(idx);
-      
+
       return;
     }
-    
+
     // Original column layout logic
     const container = containerRef.current;
     const targetEl = sectionRefs.current[idx];
@@ -276,64 +302,64 @@ export default function MuseumView({ museum, setting }: Props) {
   // Event listeners for both layouts
   useEffect(() => {
     if (!ready) return;
-    
+
     if (isRowLayout) {
       // Carousel navigation - simplified
       const handleKeyDown = (e: KeyboardEvent) => {
         if (isAnimatingRef.current) return;
-        
+
         let nextSlide = currentSlide;
         if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
           nextSlide = Math.max(0, currentSlide - 1);
         } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
           nextSlide = Math.min(SECTIONS.length - 1, currentSlide + 1);
         }
-        
+
         if (nextSlide !== currentSlide) {
           scrollToIndex(nextSlide);
         }
       };
-      
+
       const handleWheel = (e: WheelEvent) => {
         if (isAnimatingRef.current) return;
-        
+
         e.preventDefault();
         const direction = Math.sign(e.deltaY);
         const nextSlide = Math.max(0, Math.min(SECTIONS.length - 1, currentSlide + direction));
-        
+
         if (nextSlide !== currentSlide) {
           scrollToIndex(nextSlide);
         }
       };
-      
+
       // Touch/swipe support - simplified
       let touchStartX = 0;
       let touchStartTime = 0;
-      
+
       const handleTouchStart = (e: TouchEvent) => {
         touchStartX = e.touches[0].clientX;
         touchStartTime = Date.now();
       };
-      
+
       const handleTouchEnd = (e: TouchEvent) => {
         if (isAnimatingRef.current) return;
-        
+
         const touchEndX = e.changedTouches[0].clientX;
         const touchEndTime = Date.now();
         const deltaX = touchEndX - touchStartX;
         const deltaTime = touchEndTime - touchStartTime;
-        
+
         // Only trigger if it's a quick swipe with sufficient distance
         if (deltaTime < 300 && Math.abs(deltaX) > 80) {
           const direction = deltaX > 0 ? -1 : 1; // Swipe right = previous, swipe left = next
           const nextSlide = Math.max(0, Math.min(SECTIONS.length - 1, currentSlide + direction));
-          
+
           if (nextSlide !== currentSlide) {
             scrollToIndex(nextSlide);
           }
         }
       };
-      
+
       document.addEventListener('keydown', handleKeyDown);
       const carousel = carouselRef.current;
       if (carousel) {
@@ -341,7 +367,7 @@ export default function MuseumView({ museum, setting }: Props) {
         carousel.addEventListener('touchstart', handleTouchStart, { passive: true });
         carousel.addEventListener('touchend', handleTouchEnd, { passive: true });
       }
-      
+
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
         if (carousel) {
@@ -351,57 +377,24 @@ export default function MuseumView({ museum, setting }: Props) {
         }
       };
     }
-    
-    // Original column layout listeners
-    const el = containerRef.current;
-    if (!el) return;
-    const lastRef = { current: 0 };
-    const cooldown = 420;
-    const onWheel = (e: WheelEvent) => {
-      if (isAnimatingRef.current) { e.preventDefault(); return; }
-      if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
-      const now = performance.now();
-      if (now - lastRef.current < cooldown) return; // biarkan native mikro-geser di antara cooldown
-      if (Math.abs(e.deltaY) < 40) return;
-      e.preventDefault();
-      lastRef.current = now;
-      let next = active + (e.deltaY > 0 ? 1 : -1);
-      if (next < 0) next = 0; else if (next >= SECTIONS.length) next = SECTIONS.length - 1;
-      if (next !== active) scrollToIndex(next);
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+
+
   }, [active, ready]);
 
   // ===== Mobile natural snap assist (sederhana anti-glitch) =====
-  useEffect(() => {
-    if (!ready || isRowLayout) return; // skip for carousel mode
-    const el = containerRef.current; 
-    if (!el) return;
-    const isCoarse = window.matchMedia('(pointer:coarse)').matches; if (!isCoarse) return;
-    let idleTimer: number | null = null;
-    const IDLE_DELAY = 120; // ms setelah momentum berhenti
-    const snapToNearest = () => {
-      if (isAnimatingRef.current) return; const container = containerRef.current; if (!container) return;
-      const scrollTop = container.scrollTop; let best = 0; let bestDist = Infinity;
-      sectionRefs.current.forEach((sec, i) => { if (!sec) return; const d = Math.abs(sec.offsetTop - scrollTop); if (d < bestDist) { bestDist = d; best = i; } });
-      const target = sectionRefs.current[best]; if (!target) return; const diff = Math.abs(target.offsetTop - scrollTop); if (diff < 14) return;
-      // Gunakan native smooth agar tidak jitter (tanpa overshoot)
-      container.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
-    };
-    const onScroll = () => { if (idleTimer) clearTimeout(idleTimer); idleTimer = window.setTimeout(snapToNearest, IDLE_DELAY); };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => { el.removeEventListener('scroll', onScroll); if (idleTimer) clearTimeout(idleTimer); };
-  }, [active, ready, isRowLayout]);
+
 
   if (!ready) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white relative overflow-hidden" aria-busy="true" aria-label="Memuat aset">
         <div className="absolute inset-0 opacity-40 [mask-image:radial-gradient(circle_at_center,white,transparent_70%)] animate-pulse pointer-events-none bg-[conic-gradient(from_0deg,rgba(255,255,255,0.08),rgba(255,255,255,0)_55%,rgba(255,255,255,0.08))]" />
         <div className="relative z-10 flex flex-col items-center gap-8 px-6">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col text-center items-center gap-4">
             <Logo />
-            <span className="font-semibold tracking-wide text-lg">J-DiMS</span>
+            <div className="flex flex-col">
+              <span className="font-semibold tracking-wide text-lg">J-DiMS</span>
+              <span className="text-sm text-white/80 ">Jember Digital Museum System</span>
+            </div>
           </div>
           <div className="w-64 h-2 bg-white/10 rounded-full overflow-hidden">
             <div className="h-full bg-white transition-[width] duration-300 ease-out" style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -418,21 +411,22 @@ export default function MuseumView({ museum, setting }: Props) {
       {isRowLayout ? (
         // Carousel Layout
         <div className="h-screen w-screen overflow-hidden relative bg-black">
-          <Header 
-            active={currentSlide} 
-            onJump={scrollToIndex} 
-            sections={SECTIONS} 
-            brand="J-DiMS" 
+          <Header
+            active={currentSlide}
+            onJump={scrollToIndex}
+            sections={SECTIONS}
+            brand="J-DiMS"
+            subtitle="Jember Digital Museum System"
           />
-          <NavDots 
-            count={SECTIONS.length} 
-            active={currentSlide} 
-            onJump={scrollToIndex} 
+          <NavDots
+            count={SECTIONS.length}
+            active={currentSlide}
+            onJump={scrollToIndex}
           />
           <div
             ref={carouselRef}
             className="flex h-full w-full carousel-container"
-            style={{ 
+            style={{
               transform: `translateX(-${currentSlide * 100}%)`,
               transition: isAnimatingRef.current ? 'none' : 'transform 0.6s cubic-bezier(0.25, 0.85, 0.35, 1)'
             }}
@@ -448,10 +442,10 @@ export default function MuseumView({ museum, setting }: Props) {
               </div>
             ))}
           </div>
-          <ArrowNav 
-            active={currentSlide} 
-            onJump={scrollToIndex} 
-            total={SECTIONS.length} 
+          <ArrowNav
+            active={currentSlide}
+            onJump={scrollToIndex}
+            total={SECTIONS.length}
           />
           <CursorBullet />
         </div>
@@ -462,7 +456,7 @@ export default function MuseumView({ museum, setting }: Props) {
           data-scroll-root="true"
           className="h-screen w-screen overflow-y-scroll snap-y snap-mandatory scrollbar-none relative bg-black"
         >
-          <Header active={active} onJump={scrollToIndex} sections={SECTIONS} brand="J-DiMS" />
+          <Header active={active} onJump={scrollToIndex} sections={SECTIONS} brand="J-DiMS" subtitle="Jember Digital Museum System" />
           <NavDots count={SECTIONS.length} active={active} onJump={scrollToIndex} />
           {SECTIONS.map((s, i) => (
             <Section
@@ -477,6 +471,7 @@ export default function MuseumView({ museum, setting }: Props) {
           <CursorBullet />
         </div>
       )}
+      <OnboardingDialog open={showOnboarding} onClose={() => setShowOnboarding(false)} />
     </>
   );
 }
@@ -510,9 +505,7 @@ if (typeof document !== "undefined" && !document.getElementById(styleId)) {
 }
 
 /* Smooth scroll performance */
-.snap-y {
-  scroll-behavior: auto !important;
-}
+
 
 /* Prevent layout shifts during image transitions */
 section {

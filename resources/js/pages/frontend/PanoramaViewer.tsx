@@ -2,7 +2,7 @@ import MuseumInfoSidebar from '@/components/MuseumInfoSidebar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Info, Menu, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Info, Menu, Volume2, VolumeX, Music, Music2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import '../../../css/photo-sphere-viewer.css';
@@ -46,6 +46,19 @@ export default function PanoramaViewer() {
     console.log('Main ruangan:', mainRuangan);
     console.log('Active ruangan:', activeRuangan);
 
+    // ==== Visitor Logging ====
+    useEffect(() => {
+        fetch('/api/visitor-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                page_url: window.location.href,
+                museum_id: museum?.id || null,
+                referrer: document.referrer || null,
+            }),
+        }).catch(() => { }); // Ignore errors
+    }, [museum?.id]);
+
     const viewerRef = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
     const [panoramaLoaded, setPanoramaLoaded] = useState(false);
@@ -79,13 +92,13 @@ export default function PanoramaViewer() {
                             roomAudioRef.current.volume = 0.2;
                             roomAudioDuckedByNarrationRef.current = true;
                         }
-                    } catch {}
+                    } catch { }
                     // remove any pending listeners
                     if (roomAudioStartUnsubsRef.current) {
                         roomAudioStartUnsubsRef.current.forEach((fn) => {
                             try {
                                 fn();
-                            } catch {}
+                            } catch { }
                         });
                         roomAudioStartUnsubsRef.current = null;
                     }
@@ -141,7 +154,7 @@ export default function PanoramaViewer() {
             if (audioRef.current) {
                 try {
                     audioRef.current.pause();
-                } catch {}
+                } catch { }
                 audioRef.current = null;
                 setIsPlayingAudio(false);
             }
@@ -149,7 +162,7 @@ export default function PanoramaViewer() {
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
-                } catch {}
+                } catch { }
                 roomAudioRef.current = null;
                 setIsPlayingRoomAudio(false);
             }
@@ -376,7 +389,7 @@ export default function PanoramaViewer() {
                     if (audioRef.current) {
                         try {
                             audioRef.current.pause();
-                        } catch {}
+                        } catch { }
                         audioRef.current = null;
                         setIsPlayingAudio(false);
                     }
@@ -384,7 +397,7 @@ export default function PanoramaViewer() {
                     if (roomAudioRef.current) {
                         try {
                             roomAudioRef.current.pause();
-                        } catch {}
+                        } catch { }
                         roomAudioRef.current = null;
                         setIsPlayingRoomAudio(false);
                     }
@@ -408,14 +421,14 @@ export default function PanoramaViewer() {
                 if (audioRef.current) {
                     try {
                         audioRef.current.pause();
-                    } catch {}
+                    } catch { }
                     audioRef.current = null;
                     setIsPlayingAudio(false);
                 }
                 if (roomAudioRef.current) {
                     try {
                         roomAudioRef.current.pause();
-                    } catch {}
+                    } catch { }
                     roomAudioRef.current = null;
                     setIsPlayingRoomAudio(false);
                 }
@@ -430,14 +443,14 @@ export default function PanoramaViewer() {
                 if (audioRef.current) {
                     try {
                         audioRef.current.pause();
-                    } catch {}
+                    } catch { }
                     audioRef.current = null;
                     setIsPlayingAudio(false);
                 }
                 if (roomAudioRef.current) {
                     try {
                         roomAudioRef.current.pause();
-                    } catch {}
+                    } catch { }
                     roomAudioRef.current = null;
                     setIsPlayingRoomAudio(false);
                 }
@@ -498,7 +511,7 @@ export default function PanoramaViewer() {
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
-                } catch {}
+                } catch { }
                 roomAudioRef.current = null;
                 setIsPlayingRoomAudio(false);
             }
@@ -524,7 +537,7 @@ export default function PanoramaViewer() {
                                 audio.volume = 0.2;
                                 roomAudioDuckedByNarrationRef.current = true;
                             }
-                        } catch {}
+                        } catch { }
                     })
                     .catch(() => {
                         // autoplay blocked; arm gesture listeners
@@ -533,7 +546,7 @@ export default function PanoramaViewer() {
                         scheduleRoomAudioStartOnGesture();
                     });
             }
-        } catch {}
+        } catch { }
 
         if (!activeRuangan?.panorama_url) {
             console.log('No panorama URL for:', activeRuangan?.nama_ruangan);
@@ -642,10 +655,10 @@ export default function PanoramaViewer() {
                                         if (v) {
                                             try {
                                                 v.pause();
-                                            } catch {}
+                                            } catch { }
                                             try {
                                                 v.currentTime = 0;
-                                            } catch {}
+                                            } catch { }
                                         }
                                     });
                                 }
@@ -676,11 +689,11 @@ export default function PanoramaViewer() {
                                             // start playback under user gesture (like demo), from the beginning
                                             try {
                                                 videoEl.currentTime = 0;
-                                            } catch {}
+                                            } catch { }
                                             (videoEl as any).playsInline = true;
                                             videoEl.setAttribute('playsinline', 'true');
                                             videoEl.muted = true; // keep video muted; separate narration below
-                                            videoEl.play().catch(() => {});
+                                            videoEl.play().catch(() => { });
                                             // start audio narration only if provided by DB
                                             const audioUrl = markerData?.audio_url;
                                             if (audioUrl) {
@@ -690,7 +703,7 @@ export default function PanoramaViewer() {
                                                         roomAudioPrevVolumeRef.current = roomAudioRef.current.volume ?? 1;
                                                         roomAudioRef.current.volume = 0.2;
                                                         roomAudioDuckedByNarrationRef.current = true;
-                                                    } catch {}
+                                                    } catch { }
                                                 } else {
                                                     roomAudioDuckedByNarrationRef.current = false;
                                                 }
@@ -702,14 +715,14 @@ export default function PanoramaViewer() {
                                             videoEl.pause();
                                             try {
                                                 videoEl.currentTime = 0;
-                                            } catch {}
+                                            } catch { }
                                             // stop narration audio
                                             stopAudioNarration();
                                             // resume room audio if it was paused by narration
                                             if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                                                 try {
                                                     roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
-                                                } catch {}
+                                                } catch { }
                                                 roomAudioDuckedByNarrationRef.current = false;
                                             }
                                         }
@@ -745,14 +758,14 @@ export default function PanoramaViewer() {
             if (audioRef.current) {
                 try {
                     audioRef.current.pause();
-                } catch {}
+                } catch { }
                 audioRef.current = null;
                 setIsPlayingAudio(false);
             }
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
-                } catch {}
+                } catch { }
                 roomAudioRef.current = null;
                 setIsPlayingRoomAudio(false);
             }
@@ -760,7 +773,7 @@ export default function PanoramaViewer() {
                 roomAudioStartUnsubsRef.current.forEach((fn) => {
                     try {
                         fn();
-                    } catch {}
+                    } catch { }
                 });
                 roomAudioStartUnsubsRef.current = null;
             }
@@ -816,7 +829,7 @@ export default function PanoramaViewer() {
                 if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                     try {
                         roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
-                    } catch {}
+                    } catch { }
                     roomAudioDuckedByNarrationRef.current = false;
                 }
             } else {
@@ -826,7 +839,7 @@ export default function PanoramaViewer() {
                         roomAudioPrevVolumeRef.current = roomAudioRef.current.volume ?? 1;
                         roomAudioRef.current.volume = 0.2;
                         roomAudioDuckedByNarrationRef.current = true;
-                    } catch {}
+                    } catch { }
                 } else {
                     roomAudioDuckedByNarrationRef.current = false;
                 }
@@ -883,21 +896,45 @@ export default function PanoramaViewer() {
                     </div>
                 </div>
 
-                {/* Middle Left Trigger Button */}
+                {/* Middle Left Trigger Buttons (Menu + Audio Toggle) */}
                 <div
-                    className={`fixed top-1/2 left-4 z-[70] -translate-y-1/2 transform transition-all duration-300 ${
-                        showSidebar ? 'pointer-events-none opacity-0' : 'opacity-100'
-                    }`}
+                    className={`fixed top-1/2 left-4 z-[70] -translate-y-1/2 transform transition-all duration-300 ${showSidebar ? 'pointer-events-none opacity-0' : 'opacity-100'
+                        }`}
                 >
-                    <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => setShowSidebar(true)}
-                        className="rounded-full bg-blue-600 p-3 text-white shadow-lg transition-all duration-200 hover:bg-blue-700 hover:shadow-xl"
-                        title="Menu Museum"
-                    >
-                        <Menu className="h-5 w-5" />
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => setShowSidebar(true)}
+                            className="rounded-full bg-blue-600 p-3 text-white shadow-lg transition-all duration-200 hover:bg-blue-700 hover:shadow-xl"
+                            title="Menu Museum"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </Button>
+                        {activeRuangan?.audio_guide_url && (
+                            <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                    if (roomAudioRef.current) {
+                                        if (isPlayingRoomAudio) {
+                                            roomAudioRef.current.pause();
+                                            setIsPlayingRoomAudio(false);
+                                        } else {
+                                            roomAudioRef.current.play().then(() => setIsPlayingRoomAudio(true)).catch(() => { });
+                                        }
+                                    }
+                                }}
+                                className={`rounded-full p-3 shadow-lg transition-all duration-200 hover:shadow-xl ${isPlayingRoomAudio
+                                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                                    : 'bg-gray-600 hover:bg-gray-700 text-white/70'
+                                    }`}
+                                title={isPlayingRoomAudio ? 'Matikan Audio Ruangan' : 'Nyalakan Audio Ruangan'}
+                            >
+                                {isPlayingRoomAudio ? <Music2 className="h-5 w-5" /> : <Music className="h-5 w-5" />}
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Panorama Viewer */}
@@ -927,30 +964,30 @@ export default function PanoramaViewer() {
                             if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                                 try {
                                     roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
-                                } catch {}
+                                } catch { }
                                 roomAudioDuckedByNarrationRef.current = false;
                             }
                         }
                     }}
                 >
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-md dark:bg-gray-900 dark:border-gray-700">
                         <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
+                            <DialogTitle className="flex items-center gap-2 dark:text-gray-100">
                                 <Info className="h-5 w-5 text-blue-500" />
                                 {selectedMarker?.judul}
                             </DialogTitle>
                         </DialogHeader>
 
-                        {selectedMarker?.deskripsi && <DialogDescription className="text-gray-600">{selectedMarker.deskripsi}</DialogDescription>}
+                        {selectedMarker?.deskripsi && <DialogDescription className="text-gray-600 dark:text-gray-300">{selectedMarker.deskripsi}</DialogDescription>}
 
                         {/* Audio Narration Controls */}
                         {selectedMarker?.audio_url && (
-                            <div className="flex items-center gap-3 rounded-lg border border-purple-200 bg-purple-50 p-3">
-                                <Button variant="outline" size="sm" onClick={toggleAudioNarration} className="flex items-center gap-2">
+                            <div className="flex items-center gap-3 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-900/30">
+                                <Button variant="outline" size="sm" onClick={toggleAudioNarration} className="flex items-center gap-2 dark:border-purple-700 dark:text-purple-200">
                                     {isPlayingAudio ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                                     {isPlayingAudio ? 'Hentikan' : 'Putar'} Narasi
                                 </Button>
-                                <span className="text-sm text-purple-700">
+                                <span className="text-sm text-purple-700 dark:text-purple-300">
                                     {isPlayingAudio ? 'Memutar audio narasi...' : 'Audio narasi tersedia'}
                                 </span>
                             </div>
@@ -1050,6 +1087,9 @@ export default function PanoramaViewer() {
                                         </li>
                                         <li className="text-xs text-amber-800 sm:text-sm dark:text-amber-100/90">
                                             Ketuk sekali pada marker—tidak perlu menahan
+                                        </li>
+                                        <li className="text-xs text-amber-800 sm:text-sm dark:text-amber-100/90">
+                                            Tombol musik di sebelah kiri untuk on/off audio ruangan
                                         </li>
                                     </ul>
                                 </div>

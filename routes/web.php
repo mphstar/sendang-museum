@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FrontendController;
+use App\Http\Controllers\StatisticsController;
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
@@ -28,6 +29,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/stats', [DashboardController::class, 'getStats'])->name('dashboard.stats');
 
+    // Statistics
+    Route::get('statistics', [StatisticsController::class, 'index'])->name('statistics.index');
+
 
     Route::prefix('user')->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('user.index');
@@ -43,7 +47,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('store', [MuseumController::class, 'store'])->name('museum.store');
         Route::get('edit/{museum}', [MuseumController::class, 'edit'])->name('museum.edit');
         Route::post('update/{museum}', [MuseumController::class, 'update'])->name('museum.update');
-    Route::post('delete/{museum}', [MuseumController::class, 'destroy'])->name('museum.destroy');
+        Route::post('delete/{museum}', [MuseumController::class, 'destroy'])->name('museum.destroy');
         Route::post('delete-multiple', [MuseumController::class, 'deleteMultiple'])->name('museum.delete-multiple');
         Route::post('upload-background', [MuseumController::class, 'uploadBackground'])->name('museum.upload-background');
 
