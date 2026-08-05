@@ -1,8 +1,7 @@
-import React, { forwardRef, useRef, useEffect, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
+import React, { forwardRef, useEffect, useRef, useState } from 'react';
 import { FancyButton } from '../atoms/FancyButton';
 import Flip from '../FlipText';
-
 
 export type SectionData = {
     id: string;
@@ -26,24 +25,98 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
     const sectionRef = useRef<HTMLDivElement | null>(null);
     const overlayRef = sectionRef;
     const pos = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
-    const scrollProg = useRef(0); const lastTime = useRef<number | null>(null);
-    const inView = useInView(sectionRef, { amount: 0.55 }); const prev = useRef(false); const [cycle, setCycle] = useState(0);
-    useEffect(() => { const el = sectionRef.current; if (!el) return; const container = el.parentElement; if (!container) return; let ticking = false; const calc = () => { ticking = false; const h = container.clientHeight; const top = el.offsetTop; const start = top - h; const end = top + el.offsetHeight; const st = container.scrollTop; const p = (st - start) / (end - start); scrollProg.current = Math.min(1, Math.max(0, p)); }; const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(calc); } }; container.addEventListener('scroll', onScroll, { passive: true }); calc(); return () => container.removeEventListener('scroll', onScroll); }, []);
+    const scrollProg = useRef(0);
+    const lastTime = useRef<number | null>(null);
+    const inView = useInView(sectionRef, { amount: 0.55 });
+    const prev = useRef(false);
+    const [cycle, setCycle] = useState(0);
     useEffect(() => {
-        let raf: number | null = null; const lerp = (a: number, b: number, n: number) => a + (b - a) * n; const loop = () => {
-            pos.current.x = lerp(pos.current.x, pos.current.tx, 0.12); pos.current.y = lerp(pos.current.y, pos.current.ty, 0.12); const el = overlayRef.current; if (el) { const w = el.clientWidth || 1; const h = el.clientHeight || 1; const rx = pos.current.x / w - 0.5; const ry = pos.current.y / h - 0.5; const now = performance.now(); if (lastTime.current == null) lastTime.current = now; const t = now / 1000; const driftX = Math.sin(t * 0.35) * 12; const driftY = Math.cos(t * 0.28) * 10; const sShift = (scrollProg.current - 0.5) * 50; el.style.setProperty('--ox', pos.current.x + 'px'); el.style.setProperty('--oy', pos.current.y + 'px'); el.style.setProperty('--oxp', rx.toFixed(4)); el.style.setProperty('--oyp', ry.toFixed(4)); el.style.setProperty('--dx', driftX.toFixed(2)); el.style.setProperty('--dy', driftY.toFixed(2)); el.style.setProperty('--sShift', sShift.toFixed(2) + 'px'); }
-            raf = requestAnimationFrame(loop);
-        }; raf = requestAnimationFrame(loop); return () => { if (raf) cancelAnimationFrame(raf); }
+        const el = sectionRef.current;
+        if (!el) return;
+        const container = el.parentElement;
+        if (!container) return;
+        let ticking = false;
+        const calc = () => {
+            ticking = false;
+            const h = container.clientHeight;
+            const top = el.offsetTop;
+            const start = top - h;
+            const end = top + el.offsetHeight;
+            const st = container.scrollTop;
+            const p = (st - start) / (end - start);
+            scrollProg.current = Math.min(1, Math.max(0, p));
+        };
+        const onScroll = () => {
+            if (!ticking) {
+                ticking = true;
+                requestAnimationFrame(calc);
+            }
+        };
+        container.addEventListener('scroll', onScroll, { passive: true });
+        calc();
+        return () => container.removeEventListener('scroll', onScroll);
     }, []);
-    useEffect(() => { if (inView && !prev.current) { setCycle(c => c + 1); } prev.current = inView; }, [inView]);
-    const handleMove = (e: React.MouseEvent) => { if (!window.matchMedia('(pointer:fine)').matches) return; const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); pos.current.tx = e.clientX - rect.left; pos.current.ty = e.clientY - rect.top; };
+    useEffect(() => {
+        let raf: number | null = null;
+        const lerp = (a: number, b: number, n: number) => a + (b - a) * n;
+        const loop = () => {
+            pos.current.x = lerp(pos.current.x, pos.current.tx, 0.12);
+            pos.current.y = lerp(pos.current.y, pos.current.ty, 0.12);
+            const el = overlayRef.current;
+            if (el) {
+                const w = el.clientWidth || 1;
+                const h = el.clientHeight || 1;
+                const rx = pos.current.x / w - 0.5;
+                const ry = pos.current.y / h - 0.5;
+                const now = performance.now();
+                if (lastTime.current == null) lastTime.current = now;
+                const t = now / 1000;
+                const driftX = Math.sin(t * 0.35) * 12;
+                const driftY = Math.cos(t * 0.28) * 10;
+                const sShift = (scrollProg.current - 0.5) * 50;
+                el.style.setProperty('--ox', pos.current.x + 'px');
+                el.style.setProperty('--oy', pos.current.y + 'px');
+                el.style.setProperty('--oxp', rx.toFixed(4));
+                el.style.setProperty('--oyp', ry.toFixed(4));
+                el.style.setProperty('--dx', driftX.toFixed(2));
+                el.style.setProperty('--dy', driftY.toFixed(2));
+                el.style.setProperty('--sShift', sShift.toFixed(2) + 'px');
+            }
+            raf = requestAnimationFrame(loop);
+        };
+        raf = requestAnimationFrame(loop);
+        return () => {
+            if (raf) cancelAnimationFrame(raf);
+        };
+    }, []);
+    useEffect(() => {
+        if (inView && !prev.current) {
+            setCycle((c) => c + 1);
+        }
+        prev.current = inView;
+    }, [inView]);
+    const handleMove = (e: React.MouseEvent) => {
+        if (!window.matchMedia('(pointer:fine)').matches) return;
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        pos.current.tx = e.clientX - rect.left;
+        pos.current.ty = e.clientY - rect.top;
+    };
     return (
-        <section id={data.id} ref={(el: HTMLDivElement | null) => { sectionRef.current = el; if (typeof ref === 'function') ref(el as any); else if (ref && 'current' in ref) (ref as any).current = el; }} onMouseMove={handleMove} className={`h-screen w-screen snap-start relative isolate flex items-center bg-black ${align === 'right' ? 'justify-end pr-8 md:pr-16' : 'justify-start pl-8 md:pl-16'}`}>
+        <section
+            id={data.id}
+            ref={(el: HTMLDivElement | null) => {
+                sectionRef.current = el;
+                if (typeof ref === 'function') ref(el as any);
+                else if (ref && 'current' in ref) (ref as any).current = el;
+            }}
+            onMouseMove={handleMove}
+            className={`relative isolate flex h-screen w-screen snap-start items-end bg-[#111417] pb-20 ${align === 'right' ? 'justify-end pr-6 md:pr-16' : 'justify-start pl-6 md:pl-16'}`}
+        >
             {/* Black background layer to prevent unwanted images showing through */}
             <div className="absolute inset-0 -z-20 bg-black" />
             {bg && (
                 <motion.div
-                    className="absolute inset-0 -z-10 bg-cover bg-center bg-no-repeat bg-black"
+                    className="absolute inset-0 -z-10 bg-black bg-cover bg-center bg-no-repeat"
                     style={{ backgroundImage: `url(${bg})` }}
                     initial={{ scale: 1.05 }}
                     whileInView={{ scale: 1 }}
@@ -51,24 +124,24 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
                     viewport={{ amount: 0.3, once: false }}
                     transition={{
                         duration: 1.2,
-                        ease: "easeOut"
+                        ease: 'easeOut',
                     }}
                     role="img"
                     aria-label={title}
                 />
             )}
-            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/60 via-black/30 to-black/60" />
+            <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(17,20,23,0.2)_0%,rgba(17,20,23,0.2)_38%,rgba(17,20,23,0.92)_100%)]" />
             {overlays && overlays.length > 0 && (
                 <motion.div
                     key={cycle}
-                    className="absolute inset-0 -z-[8] pointer-events-none select-none overlay-container"
+                    className="overlay-container pointer-events-none absolute inset-0 -z-[8] select-none"
                     initial={{ scale: 1.08 }}
                     whileInView={{ scale: 1 }}
                     exit={{ scale: 1.08 }}
                     viewport={{ amount: 0.3, once: false }}
                     transition={{
                         duration: 1.2,
-                        ease: "easeOut"
+                        ease: 'easeOut',
                     }}
                 >
                     {overlays.map((overlay, i) => {
@@ -84,8 +157,10 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
                                 if (overlay.position_horizontal === 'left') stylePos.left = 0;
                                 if (overlay.position_horizontal === 'center') stylePos.left = '50%';
                                 if (overlay.position_horizontal === 'right') stylePos.right = 0;
-                                if (overlay.position_horizontal === 'center' && overlay.position_vertical !== 'center') stylePos.transform = 'translateX(-50%)';
-                                if (overlay.position_vertical === 'center' && overlay.position_horizontal !== 'center') stylePos.transform = 'translateY(-50%)';
+                                if (overlay.position_horizontal === 'center' && overlay.position_vertical !== 'center')
+                                    stylePos.transform = 'translateX(-50%)';
+                                if (overlay.position_vertical === 'center' && overlay.position_horizontal !== 'center')
+                                    stylePos.transform = 'translateY(-50%)';
                             }
                         }
                         return (
@@ -97,7 +172,8 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
                                     backgroundRepeat: 'no-repeat',
                                     backgroundPosition: 'center',
                                     backgroundSize: overlay.object_fit || 'cover',
-                                    width: '180px', height: '180px',
+                                    width: '180px',
+                                    height: '180px',
                                     ...stylePos,
                                     willChange: 'transform',
                                 }}
@@ -107,13 +183,34 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
                     })}
                 </motion.div>
             )}
-            <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ amount: 0.6, once: false }} transition={{ duration: 0.6, ease: 'easeOut' }} className={`max-w-5xl w-full flex flex-col ${align === 'right' ? 'text-right items-end' : 'text-left items-start'}`}>
-                {title.trim().split(/\s+/).map(w => <Flip key={w}>{w}</Flip>)}
-                {subtitle && <p className="mt-4 text-white/90 md:text-xl font-light tracking-wide">{subtitle}</p>}
+            <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ amount: 0.6, once: false }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+                className={`w-full max-w-5xl ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}
+            >
+                <div className="mb-5 flex items-center gap-3">
+                    <span className="museum-kicker">{String(index + 1).padStart(2, '0')} / destination</span>
+                    <span className="h-px w-16 bg-[#f1b19b]/70" />
+                </div>
+                {title
+                    .trim()
+                    .split(/\s+/)
+                    .map((w) => (
+                        <Flip key={w}>{w}</Flip>
+                    ))}
+                {subtitle && <p className="mt-5 max-w-xl text-base leading-relaxed font-light tracking-wide text-white/85 md:text-xl">{subtitle}</p>}
                 {content && <div className={`mt-8 w-fit ${align === 'right' ? 'text-right' : 'text-left'}`}>{content}</div>}
-                {ctaHref && <div className={`mt-10 ${align === 'right' ? 'flex justify-end' : 'flex justify-start'}`}><FancyButton href={ctaHref}>Lihat</FancyButton></div>}
+                {ctaHref && (
+                    <div className={`mt-10 ${align === 'right' ? 'flex justify-end' : 'flex justify-start'}`}>
+                        <FancyButton href={ctaHref}>Lihat</FancyButton>
+                    </div>
+                )}
             </motion.div>
-            <div className="absolute bottom-6 left-6 text-white/60 font-mono">{String(index + 1).padStart(2, '0')}</div>
+            <div className="absolute right-6 bottom-6 hidden text-right text-[10px] tracking-[0.2em] text-white/55 uppercase sm:block">
+                Jember / Indonesia
+            </div>
         </section>
     );
 });

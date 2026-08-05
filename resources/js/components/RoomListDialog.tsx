@@ -1,127 +1,106 @@
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Navigation } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowRight, Check, Compass, LoaderCircle, Map } from 'lucide-react';
+import { useState } from 'react';
 
 interface RoomListDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  allRuangan: any[];
-  activeRuangan: any;
-  onRoomChange: (ruanganId: number) => void;
+    isOpen: boolean;
+    onClose: () => void;
+    allRuangan: any[];
+    activeRuangan: any;
+    onRoomChange: (ruanganId: number) => void;
 }
 
-export default function RoomListDialog({ 
-  isOpen, 
-  onClose, 
-  allRuangan, 
-  activeRuangan, 
-  onRoomChange 
-}: RoomListDialogProps) {
-  const [isNavigating, setIsNavigating] = useState(false);
-  
-  const handleRoomClick = async (ruangan: any) => {
-    if (ruangan.id !== activeRuangan?.id && !isNavigating) {
-      setIsNavigating(true);
-      try {
-        onRoomChange(ruangan.id);
-        // Small delay before closing to ensure navigation starts
-        setTimeout(() => {
-          onClose();
-          setIsNavigating(false);
-        }, 200);
-      } catch (error) {
-        console.error('Error navigating to room:', error);
-        setIsNavigating(false);
-      }
-    }
-  };
+export default function RoomListDialog({ isOpen, onClose, allRuangan, activeRuangan, onRoomChange }: RoomListDialogProps) {
+    const [isNavigating, setIsNavigating] = useState(false);
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-[95vw] sm:w-[90vw] md:w-[720px] max-h-[85vh] p-0 z-[80] dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
-        <DialogHeader className="p-4 sm:p-6 pb-2 sticky top-0 bg-white dark:bg-gray-900 z-10" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}>
-          <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
-            <Navigation className="w-5 h-5 text-blue-600" />
-            Daftar Panorama
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-3 py-4 px-4 sm:px-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 120px)' }}>
-          {allRuangan.map((ruangan: any, index: number) => (
-            <div
-              key={ruangan.id}
-              className={`p-5 sm:p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
-                ruangan.id === activeRuangan?.id
-                  ? 'bg-blue-50 border-blue-300 shadow-md ring-2 ring-blue-200 dark:bg-blue-950/30 dark:border-blue-600/60 dark:ring-blue-700/40'
-                  : 'bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700'
-              }`}
-              onClick={() => handleRoomClick(ruangan)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0">
-                      <div className={`w-3 h-3 rounded-full ${
-                        ruangan.id === activeRuangan?.id ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-500'
-                      }`}></div>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`font-medium truncate text-base ${
-                        ruangan.id === activeRuangan?.id ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100'
-                      }`}>
-                        {ruangan.nama_ruangan}
-                      </p>
-                      
-                      <div className="flex items-center gap-2 mt-1">
-                        {ruangan.is_main && (
-                          <span className="inline-block px-2 py-1 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-full font-medium">
-                            Ruangan Utama
-                          </span>
-                        )}
-                        {ruangan.markers && ruangan.markers.length > 0 && (
-                          <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-full">
-                            {ruangan.markers.length} marker interaktif
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {ruangan.id === activeRuangan?.id && (
-                    <div className="mt-2 text-xs text-blue-600 dark:text-blue-300 font-medium">
-                      ← Sedang dilihat
-                    </div>
-                  )}
+    const handleRoomClick = async (ruangan: any) => {
+        if (ruangan.id !== activeRuangan?.id && !isNavigating) {
+            setIsNavigating(true);
+            try {
+                onRoomChange(ruangan.id);
+                // Small delay before closing to ensure navigation starts
+                setTimeout(() => {
+                    onClose();
+                    setIsNavigating(false);
+                }, 200);
+            } catch (error) {
+                console.error('Error navigating to room:', error);
+                setIsNavigating(false);
+            }
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="z-[130] max-h-[88dvh] w-[calc(100vw-1rem)] max-w-3xl overflow-hidden border-white/15 bg-[#111417] p-0 text-[#f2efe8] sm:w-[92vw]">
+                <DialogHeader
+                    className="sticky top-0 z-10 border-b border-white/15 bg-[#111417]/95 px-5 py-5 backdrop-blur-md sm:px-7"
+                    style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.25rem)' }}
+                >
+                    <p className="museum-kicker">Panorama directory</p>
+                    <DialogTitle className="mt-1 flex items-center gap-3 text-xl font-black tracking-[-0.03em] sm:text-2xl">
+                        <Map className="h-5 w-5 text-[#f1b19b]" />
+                        Indeks Ruang
+                    </DialogTitle>
+                    <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/50">
+                        Pilih ruang untuk berpindah. Penanda dan narasi akan diperbarui mengikuti panorama yang aktif.
+                    </p>
+                </DialogHeader>
+
+                <div className="grid max-h-[58dvh] grid-cols-1 gap-px overflow-y-auto bg-white/10 p-px sm:grid-cols-2">
+                    {allRuangan.map((ruangan: any, index: number) => (
+                        <button
+                            type="button"
+                            key={ruangan.id}
+                            className={`group relative min-h-40 overflow-hidden p-5 text-left transition-colors ${
+                                ruangan.id === activeRuangan?.id
+                                    ? 'bg-[#d85c3e] text-white'
+                                    : 'bg-[#171b1f] text-white/65 hover:bg-[#20252a] hover:text-white'
+                            }`}
+                            onClick={() => handleRoomClick(ruangan)}
+                            disabled={isNavigating && ruangan.id !== activeRuangan?.id}
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <span className={`font-mono text-xs ${ruangan.id === activeRuangan?.id ? 'text-white/65' : 'text-[#f1b19b]'}`}>
+                                    {String(index + 1).padStart(2, '0')}
+                                </span>
+                                {ruangan.id === activeRuangan?.id ? (
+                                    <Check className="h-5 w-5" />
+                                ) : isNavigating ? (
+                                    <LoaderCircle className="h-5 w-5 animate-spin text-white/35" />
+                                ) : (
+                                    <ArrowRight className="h-5 w-5 text-white/25 transition-transform group-hover:translate-x-1 group-hover:text-[#f1b19b]" />
+                                )}
+                            </div>
+                            <div className="mt-8">
+                                <p className="truncate text-lg font-bold tracking-tight">{ruangan.nama_ruangan}</p>
+                                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] tracking-[0.14em] text-white/45 uppercase">
+                                    {ruangan.is_main && <span>Titik awal</span>}
+                                    <span>{ruangan.markers?.length || 0} penanda</span>
+                                    {ruangan.id === activeRuangan?.id && <span className="text-white">Sedang dilihat</span>}
+                                </div>
+                            </div>
+                        </button>
+                    ))}
                 </div>
-                
-                {ruangan.id !== activeRuangan?.id && (
-                  <div className="ml-3 flex-shrink-0">
+
+                <div
+                    className="flex items-center justify-between gap-3 border-t border-white/15 px-5 py-4 sm:px-7"
+                    style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+                >
+                    <span className="flex items-center gap-2 text-xs text-white/40">
+                        <Compass className="h-4 w-4" /> {allRuangan.length} ruang tersedia
+                    </span>
                     <Button
-                      variant="outline" 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRoomClick(ruangan);
-                      }}
-                      disabled={isNavigating}
-                      className="text-xs"
+                        variant="outline"
+                        onClick={onClose}
+                        className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
                     >
-                      {isNavigating ? 'Loading...' : 'Lihat'}
+                        Kembali ke panorama
                     </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700 px-4 sm:px-6 pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
-          <Button variant="outline" onClick={onClose}>
-            Tutup
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
 }

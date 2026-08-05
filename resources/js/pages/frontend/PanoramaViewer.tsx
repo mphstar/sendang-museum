@@ -2,7 +2,22 @@ import MuseumInfoSidebar from '@/components/MuseumInfoSidebar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Info, Menu, Volume2, VolumeX, Music, Music2 } from 'lucide-react';
+import {
+    ArrowLeft,
+    ArrowRight,
+    Circle,
+    Hand,
+    Info,
+    Menu,
+    MousePointerClick,
+    Music,
+    Music2,
+    Play,
+    Scan,
+    Volume2,
+    VolumeX,
+    ZoomIn,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import '../../../css/photo-sphere-viewer.css';
@@ -56,7 +71,7 @@ export default function PanoramaViewer() {
                 museum_id: museum?.id || null,
                 referrer: document.referrer || null,
             }),
-        }).catch(() => { }); // Ignore errors
+        }).catch(() => {}); // Ignore errors
     }, [museum?.id]);
 
     const viewerRef = useRef<HTMLDivElement>(null);
@@ -68,6 +83,7 @@ export default function PanoramaViewer() {
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [showVisitorGuide, setShowVisitorGuide] = useState(true); // Show guide on first load
     const [showSidebar, setShowSidebar] = useState(false); // Sidebar state
+    const [projectionMode, setProjectionMode] = useState<'immersive' | 'planet'>('immersive');
     const audioRef = useRef<HTMLAudioElement | null>(null);
     // Room background audio (guide)
     const roomAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -92,13 +108,13 @@ export default function PanoramaViewer() {
                             roomAudioRef.current.volume = 0.2;
                             roomAudioDuckedByNarrationRef.current = true;
                         }
-                    } catch { }
+                    } catch {}
                     // remove any pending listeners
                     if (roomAudioStartUnsubsRef.current) {
                         roomAudioStartUnsubsRef.current.forEach((fn) => {
                             try {
                                 fn();
-                            } catch { }
+                            } catch {}
                         });
                         roomAudioStartUnsubsRef.current = null;
                     }
@@ -154,7 +170,7 @@ export default function PanoramaViewer() {
             if (audioRef.current) {
                 try {
                     audioRef.current.pause();
-                } catch { }
+                } catch {}
                 audioRef.current = null;
                 setIsPlayingAudio(false);
             }
@@ -162,7 +178,7 @@ export default function PanoramaViewer() {
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
-                } catch { }
+                } catch {}
                 roomAudioRef.current = null;
                 setIsPlayingRoomAudio(false);
             }
@@ -389,7 +405,7 @@ export default function PanoramaViewer() {
                     if (audioRef.current) {
                         try {
                             audioRef.current.pause();
-                        } catch { }
+                        } catch {}
                         audioRef.current = null;
                         setIsPlayingAudio(false);
                     }
@@ -397,7 +413,7 @@ export default function PanoramaViewer() {
                     if (roomAudioRef.current) {
                         try {
                             roomAudioRef.current.pause();
-                        } catch { }
+                        } catch {}
                         roomAudioRef.current = null;
                         setIsPlayingRoomAudio(false);
                     }
@@ -421,14 +437,14 @@ export default function PanoramaViewer() {
                 if (audioRef.current) {
                     try {
                         audioRef.current.pause();
-                    } catch { }
+                    } catch {}
                     audioRef.current = null;
                     setIsPlayingAudio(false);
                 }
                 if (roomAudioRef.current) {
                     try {
                         roomAudioRef.current.pause();
-                    } catch { }
+                    } catch {}
                     roomAudioRef.current = null;
                     setIsPlayingRoomAudio(false);
                 }
@@ -443,14 +459,14 @@ export default function PanoramaViewer() {
                 if (audioRef.current) {
                     try {
                         audioRef.current.pause();
-                    } catch { }
+                    } catch {}
                     audioRef.current = null;
                     setIsPlayingAudio(false);
                 }
                 if (roomAudioRef.current) {
                     try {
                         roomAudioRef.current.pause();
-                    } catch { }
+                    } catch {}
                     roomAudioRef.current = null;
                     setIsPlayingRoomAudio(false);
                 }
@@ -511,7 +527,7 @@ export default function PanoramaViewer() {
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
-                } catch { }
+                } catch {}
                 roomAudioRef.current = null;
                 setIsPlayingRoomAudio(false);
             }
@@ -537,7 +553,7 @@ export default function PanoramaViewer() {
                                 audio.volume = 0.2;
                                 roomAudioDuckedByNarrationRef.current = true;
                             }
-                        } catch { }
+                        } catch {}
                     })
                     .catch(() => {
                         // autoplay blocked; arm gesture listeners
@@ -546,7 +562,7 @@ export default function PanoramaViewer() {
                         scheduleRoomAudioStartOnGesture();
                     });
             }
-        } catch { }
+        } catch {}
 
         if (!activeRuangan?.panorama_url) {
             console.log('No panorama URL for:', activeRuangan?.nama_ruangan);
@@ -622,7 +638,8 @@ export default function PanoramaViewer() {
                     ],
                     navbar: ['zoom', 'fullscreen'],
                     defaultZoomLvl: 0,
-                    fisheye: false,
+                    fisheye: projectionMode === 'planet' ? 2 : false,
+                    defaultPitch: projectionMode === 'planet' ? -Math.PI / 2 : 0,
                     mousewheel: true,
                     mousemove: true,
                     keyboard: true,
@@ -655,10 +672,10 @@ export default function PanoramaViewer() {
                                         if (v) {
                                             try {
                                                 v.pause();
-                                            } catch { }
+                                            } catch {}
                                             try {
                                                 v.currentTime = 0;
-                                            } catch { }
+                                            } catch {}
                                         }
                                     });
                                 }
@@ -689,11 +706,11 @@ export default function PanoramaViewer() {
                                             // start playback under user gesture (like demo), from the beginning
                                             try {
                                                 videoEl.currentTime = 0;
-                                            } catch { }
+                                            } catch {}
                                             (videoEl as any).playsInline = true;
                                             videoEl.setAttribute('playsinline', 'true');
                                             videoEl.muted = true; // keep video muted; separate narration below
-                                            videoEl.play().catch(() => { });
+                                            videoEl.play().catch(() => {});
                                             // start audio narration only if provided by DB
                                             const audioUrl = markerData?.audio_url;
                                             if (audioUrl) {
@@ -703,7 +720,7 @@ export default function PanoramaViewer() {
                                                         roomAudioPrevVolumeRef.current = roomAudioRef.current.volume ?? 1;
                                                         roomAudioRef.current.volume = 0.2;
                                                         roomAudioDuckedByNarrationRef.current = true;
-                                                    } catch { }
+                                                    } catch {}
                                                 } else {
                                                     roomAudioDuckedByNarrationRef.current = false;
                                                 }
@@ -715,14 +732,14 @@ export default function PanoramaViewer() {
                                             videoEl.pause();
                                             try {
                                                 videoEl.currentTime = 0;
-                                            } catch { }
+                                            } catch {}
                                             // stop narration audio
                                             stopAudioNarration();
                                             // resume room audio if it was paused by narration
                                             if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                                                 try {
                                                     roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
-                                                } catch { }
+                                                } catch {}
                                                 roomAudioDuckedByNarrationRef.current = false;
                                             }
                                         }
@@ -758,14 +775,14 @@ export default function PanoramaViewer() {
             if (audioRef.current) {
                 try {
                     audioRef.current.pause();
-                } catch { }
+                } catch {}
                 audioRef.current = null;
                 setIsPlayingAudio(false);
             }
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
-                } catch { }
+                } catch {}
                 roomAudioRef.current = null;
                 setIsPlayingRoomAudio(false);
             }
@@ -773,7 +790,7 @@ export default function PanoramaViewer() {
                 roomAudioStartUnsubsRef.current.forEach((fn) => {
                     try {
                         fn();
-                    } catch { }
+                    } catch {}
                 });
                 roomAudioStartUnsubsRef.current = null;
             }
@@ -786,7 +803,7 @@ export default function PanoramaViewer() {
                 }
             }
         };
-    }, [activeRuangan, activeMarkers, generateMarkers, switchToRoom]);
+    }, [activeRuangan, activeMarkers, generateMarkers, projectionMode, switchToRoom]);
 
     // Audio narration functions
     const playAudioNarration = (audioUrl: string) => {
@@ -829,7 +846,7 @@ export default function PanoramaViewer() {
                 if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                     try {
                         roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
-                    } catch { }
+                    } catch {}
                     roomAudioDuckedByNarrationRef.current = false;
                 }
             } else {
@@ -839,7 +856,7 @@ export default function PanoramaViewer() {
                         roomAudioPrevVolumeRef.current = roomAudioRef.current.volume ?? 1;
                         roomAudioRef.current.volume = 0.2;
                         roomAudioDuckedByNarrationRef.current = true;
-                    } catch { }
+                    } catch {}
                 } else {
                     roomAudioDuckedByNarrationRef.current = false;
                 }
@@ -874,39 +891,65 @@ export default function PanoramaViewer() {
         }
       `}</style>
 
-            <div className="relative h-screen w-screen overflow-hidden bg-black">
+            <div className="museum-panorama relative h-screen w-screen overflow-hidden bg-[#111417]">
                 {/* Header */}
-                <div className="absolute top-0 right-0 left-0 z-[70] overflow-hidden bg-gradient-to-b from-black/70 to-transparent p-4">
-                    <div className="flex w-full max-w-full items-center justify-between">
+                <div className="absolute top-0 right-0 left-0 z-[70] overflow-hidden border-b border-white/15 bg-[#111417]/55 p-4 backdrop-blur-md">
+                    <div className="flex w-full max-w-full items-center justify-between gap-3">
                         <div className="flex min-w-0 flex-1 items-center gap-4">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => router.visit('/')}
-                                className="flex-shrink-0 text-white hover:bg-white/10"
+                                className="flex-shrink-0 border border-white/20 text-white hover:bg-white/10"
                             >
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Kembali
                             </Button>
                             <div className="min-w-0 flex-1 text-white">
-                                <h1 className="truncate text-lg font-semibold">{activeRuangan.nama_ruangan}</h1>
-                                <p className="truncate text-sm text-white/80">{museum.title}</p>
+                                <p className="museum-kicker mb-1">
+                                    Ruang {allRuangan.findIndex((room: any) => room.id === activeRuangan.id) + 1} / {allRuangan.length}
+                                </p>
+                                <h1 className="truncate text-base font-semibold sm:text-lg">{activeRuangan.nama_ruangan}</h1>
+                                <p className="truncate text-xs text-white/65 sm:text-sm">{museum.title}</p>
                             </div>
+                        </div>
+                        <div className="flex shrink-0 items-center border border-white/20 bg-black/20 p-1" aria-label="Mode proyeksi panorama">
+                            <button
+                                type="button"
+                                onClick={() => setProjectionMode('immersive')}
+                                className={`flex h-9 items-center gap-2 px-3 text-xs font-semibold transition-colors ${projectionMode === 'immersive' ? 'bg-[#f2efe8] text-[#111417]' : 'text-white/70 hover:text-white'}`}
+                                aria-pressed={projectionMode === 'immersive'}
+                                title="Tampilan panorama imersif"
+                            >
+                                <Scan className="h-4 w-4" />
+                                <span className="hidden sm:inline">Imersif</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setProjectionMode('planet')}
+                                className={`flex h-9 items-center gap-2 px-3 text-xs font-semibold transition-colors ${projectionMode === 'planet' ? 'bg-[#d85c3e] text-white' : 'text-white/70 hover:text-white'}`}
+                                aria-pressed={projectionMode === 'planet'}
+                                title="Tampilan panorama seperti globe"
+                            >
+                                <Circle className="h-4 w-4" />
+                                <span className="hidden sm:inline">Globe</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Middle Left Trigger Buttons (Menu + Audio Toggle) */}
                 <div
-                    className={`fixed top-1/2 left-4 z-[70] -translate-y-1/2 transform transition-all duration-300 ${showSidebar ? 'pointer-events-none opacity-0' : 'opacity-100'
-                        }`}
+                    className={`fixed top-1/2 left-4 z-[70] -translate-y-1/2 transform transition-all duration-300 ${
+                        showSidebar ? 'pointer-events-none opacity-0' : 'opacity-100'
+                    }`}
                 >
                     <div className="flex flex-col gap-2">
                         <Button
                             variant="default"
                             size="sm"
                             onClick={() => setShowSidebar(true)}
-                            className="rounded-full bg-blue-600 p-3 text-white shadow-lg transition-all duration-200 hover:bg-blue-700 hover:shadow-xl"
+                            className="rounded-full border border-white/30 bg-[#d85c3e] p-3 text-white shadow-lg transition-colors duration-200 hover:bg-[#b94830]"
                             title="Menu Museum"
                         >
                             <Menu className="h-5 w-5" />
@@ -921,14 +964,18 @@ export default function PanoramaViewer() {
                                             roomAudioRef.current.pause();
                                             setIsPlayingRoomAudio(false);
                                         } else {
-                                            roomAudioRef.current.play().then(() => setIsPlayingRoomAudio(true)).catch(() => { });
+                                            roomAudioRef.current
+                                                .play()
+                                                .then(() => setIsPlayingRoomAudio(true))
+                                                .catch(() => {});
                                         }
                                     }
                                 }}
-                                className={`rounded-full p-3 shadow-lg transition-all duration-200 hover:shadow-xl ${isPlayingRoomAudio
-                                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                                    : 'bg-gray-600 hover:bg-gray-700 text-white/70'
-                                    }`}
+                                className={`rounded-full p-3 shadow-lg transition-all duration-200 hover:shadow-xl ${
+                                    isPlayingRoomAudio
+                                        ? 'bg-[#f2efe8] text-[#111417] hover:bg-white'
+                                        : 'bg-[#111417]/80 text-white/70 hover:bg-[#111417]'
+                                }`}
                                 title={isPlayingRoomAudio ? 'Matikan Audio Ruangan' : 'Nyalakan Audio Ruangan'}
                             >
                                 {isPlayingRoomAudio ? <Music2 className="h-5 w-5" /> : <Music className="h-5 w-5" />}
@@ -964,13 +1011,13 @@ export default function PanoramaViewer() {
                             if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                                 try {
                                     roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
-                                } catch { }
+                                } catch {}
                                 roomAudioDuckedByNarrationRef.current = false;
                             }
                         }
                     }}
                 >
-                    <DialogContent className="max-w-md dark:bg-gray-900 dark:border-gray-700">
+                    <DialogContent className="max-w-md dark:border-gray-700 dark:bg-gray-900">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 dark:text-gray-100">
                                 <Info className="h-5 w-5 text-blue-500" />
@@ -978,12 +1025,19 @@ export default function PanoramaViewer() {
                             </DialogTitle>
                         </DialogHeader>
 
-                        {selectedMarker?.deskripsi && <DialogDescription className="text-gray-600 dark:text-gray-300">{selectedMarker.deskripsi}</DialogDescription>}
+                        {selectedMarker?.deskripsi && (
+                            <DialogDescription className="text-gray-600 dark:text-gray-300">{selectedMarker.deskripsi}</DialogDescription>
+                        )}
 
                         {/* Audio Narration Controls */}
                         {selectedMarker?.audio_url && (
                             <div className="flex items-center gap-3 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-900/30">
-                                <Button variant="outline" size="sm" onClick={toggleAudioNarration} className="flex items-center gap-2 dark:border-purple-700 dark:text-purple-200">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={toggleAudioNarration}
+                                    className="flex items-center gap-2 dark:border-purple-700 dark:text-purple-200"
+                                >
                                     {isPlayingAudio ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                                     {isPlayingAudio ? 'Hentikan' : 'Putar'} Narasi
                                 </Button>
@@ -1001,118 +1055,95 @@ export default function PanoramaViewer() {
 
                 {/* Visitor Guide Dialog */}
                 <Dialog open={showVisitorGuide} onOpenChange={setShowVisitorGuide}>
-                    <DialogContent className="z-[9999] h-auto max-h-[80dvh] w-[100vw] overflow-hidden rounded-none border-0 bg-white p-0 sm:w-[90vw] sm:max-w-2xl sm:rounded-2xl sm:border dark:bg-neutral-900">
-                        <div className="flex h-full flex-col">
-                            {/* Header */}
-                            <div className="border-b border-amber-200/60 bg-amber-100/80 px-5 py-4 dark:border-amber-800/50 dark:bg-amber-900/20">
-                                <DialogTitle className="text-center text-lg font-bold text-amber-900 sm:text-xl dark:text-amber-200">
-                                    Panduan Singkat
-                                </DialogTitle>
-                                <p className="mt-1 text-center text-xs text-amber-800/80 sm:text-sm dark:text-amber-200/80">
-                                    Cara cepat menjelajahi panorama di HP
-                                </p>
-                            </div>
+                    <DialogContent className="border-border bg-background text-foreground z-[9999] flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:w-[92vw]">
+                        <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[#d85c3e] px-5 py-5 text-left sm:px-7 sm:py-6">
+                            <div className="absolute -top-14 -right-10 h-36 w-36 rounded-full border border-white/20" />
+                            <div className="absolute -top-7 -right-3 h-24 w-24 rounded-full border border-white/20" />
+                            <p className="relative text-[10px] font-bold tracking-[0.2em] text-white/70 uppercase">J-DiMS / orientasi</p>
+                            <DialogTitle className="relative mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                                Panduan Pengunjung
+                            </DialogTitle>
+                            <DialogDescription className="relative mt-1 max-w-lg text-xs text-white/75 sm:text-sm">
+                                Empat kontrol utama untuk menjelajahi ruang, koleksi, dan cerita museum.
+                            </DialogDescription>
+                        </DialogHeader>
 
-                            {/* Body */}
-                            <div className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-                                    {/* 1. Gerak Kamera */}
-                                    <div className="flex items-center gap-3 rounded-xl border border-amber-200/70 bg-white/90 p-4 dark:border-amber-800/60 dark:bg-neutral-800">
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-400/90">
-                                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                                                <path d="M12 2v20M2 12h20" />
-                                                <path d="M7 7l10 10M17 7L7 17" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-800 sm:text-base dark:text-gray-100">Gerakkan Kamera</p>
-                                            <p className="text-xs text-gray-600 sm:text-sm dark:text-gray-300">
-                                                Sentuh & geser untuk melihat sekitar
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* 2. Pindah Ruangan */}
-                                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200/70 bg-white/90 p-4 dark:border-emerald-800/60 dark:bg-neutral-800">
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500">
-                                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                                                <path d="M9 6l6 6-6 6" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-800 sm:text-base dark:text-gray-100">Pindah Ruangan</p>
-                                            <p className="text-xs text-gray-600 sm:text-sm dark:text-gray-300">Ketuk penanda hijau untuk berpindah</p>
-                                        </div>
-                                    </div>
-
-                                    {/* 3. Info & Video */}
-                                    <div className="flex items-center gap-3 rounded-xl border border-blue-200/70 bg-white/90 p-4 dark:border-blue-800/60 dark:bg-neutral-800">
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500">
-                                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                                                <circle cx="12" cy="12" r="10" />
-                                                <path d="M12 16v-4m0-4h.01" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-800 sm:text-base dark:text-gray-100">Lihat Informasi</p>
-                                            <p className="text-xs text-gray-600 sm:text-sm dark:text-gray-300">Ketuk penanda biru untuk detail</p>
-                                        </div>
-                                    </div>
-
-                                    {/* 4. Video Play/Stop */}
-                                    <div className="flex items-center gap-3 rounded-xl border border-purple-200/70 bg-white/90 p-4 dark:border-purple-800/60 dark:bg-neutral-800">
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-500">
-                                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="white">
-                                                <path d="M8 5v14l11-7z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-800 sm:text-base dark:text-gray-100">Video Play / Stop</p>
-                                            <p className="text-xs text-gray-600 sm:text-sm dark:text-gray-300">
-                                                Ketuk video untuk mulai/berhenti, narasi audio ikut
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Zoom & Tips */}
-                                <div className="rounded-xl border border-amber-200/70 bg-amber-50/70 p-4 dark:border-amber-800/60 dark:bg-amber-900/10">
-                                    <p className="mb-2 text-sm font-semibold text-amber-900 sm:text-base dark:text-amber-200">Zoom & Tips</p>
-                                    <ul className="list-disc space-y-1 pl-5">
-                                        <li className="text-xs text-amber-800 sm:text-sm dark:text-amber-100/90">
-                                            Cubitan (pinch) untuk zoom in/out
-                                        </li>
-                                        <li className="text-xs text-amber-800 sm:text-sm dark:text-amber-100/90">
-                                            Gunakan tombol zoom di toolbar jika perlu
-                                        </li>
-                                        <li className="text-xs text-amber-800 sm:text-sm dark:text-amber-100/90">
-                                            Ketuk sekali pada marker—tidak perlu menahan
-                                        </li>
-                                        <li className="text-xs text-amber-800 sm:text-sm dark:text-amber-100/90">
-                                            Tombol musik di sebelah kiri untuk on/off audio ruangan
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="border-t border-amber-200/60 bg-white/90 p-4 dark:border-amber-800/50 dark:bg-neutral-900">
-                                <div className="flex flex-col gap-3 sm:flex-row">
-                                    <Button
-                                        onClick={() => setShowVisitorGuide(false)}
-                                        className="flex-1 rounded-lg bg-amber-600 px-6 py-5 font-semibold text-white hover:bg-amber-700 sm:py-2"
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-7 sm:py-3">
+                            {[
+                                {
+                                    icon: Hand,
+                                    title: 'Lihat sekeliling',
+                                    description: 'Geser panorama dengan jari atau mouse untuk mengubah arah pandang.',
+                                },
+                                {
+                                    icon: ArrowRight,
+                                    title: 'Berpindah ruang',
+                                    description: 'Pilih penanda arah untuk melanjutkan kunjungan ke panorama berikutnya.',
+                                },
+                                {
+                                    icon: MousePointerClick,
+                                    title: 'Buka informasi',
+                                    description: 'Pilih penanda koleksi untuk membaca detail dan mendengarkan narasi.',
+                                },
+                                {
+                                    icon: Play,
+                                    title: 'Putar media',
+                                    description: 'Pilih video satu kali untuk memutar atau menghentikan tayangan dan audionya.',
+                                },
+                            ].map((item, index) => {
+                                const GuideIcon = item.icon;
+                                return (
+                                    <div
+                                        key={item.title}
+                                        className="border-border grid grid-cols-[2rem_2.75rem_1fr] items-center gap-3 border-b py-4 sm:grid-cols-[2.5rem_3rem_1fr] sm:gap-4"
                                     >
-                                        Mengerti, Mulai Jelajah
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleCloseVisitorGuide}
-                                        className="flex-1 rounded-lg border-amber-500 px-6 py-5 font-medium text-amber-700 hover:bg-amber-50 sm:py-2 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/20"
-                                    >
-                                        Jangan tampilkan lagi
-                                    </Button>
+                                        <span className="font-mono text-xs text-[#b94830] dark:text-[#f1b19b]">
+                                            {String(index + 1).padStart(2, '0')}
+                                        </span>
+                                        <span className="border-border bg-muted flex h-11 w-11 items-center justify-center border text-[#b94830] sm:h-12 sm:w-12 dark:text-[#f1b19b]">
+                                            <GuideIcon className="h-5 w-5" />
+                                        </span>
+                                        <span className="min-w-0">
+                                            <span className="text-foreground block text-sm font-semibold sm:text-base">{item.title}</span>
+                                            <span className="text-muted-foreground mt-1 block text-xs leading-relaxed sm:text-sm">
+                                                {item.description}
+                                            </span>
+                                        </span>
+                                    </div>
+                                );
+                            })}
+
+                            <div className="border-border bg-border my-4 grid gap-px border sm:grid-cols-2">
+                                <div className="bg-muted flex items-start gap-3 p-4">
+                                    <ZoomIn className="mt-0.5 h-4 w-4 shrink-0 text-[#b94830] dark:text-[#f1b19b]" />
+                                    <p className="text-muted-foreground text-xs leading-relaxed">
+                                        Cubit layar, gulir mouse, atau gunakan tombol zoom untuk mendekati objek.
+                                    </p>
+                                </div>
+                                <div className="bg-muted flex items-start gap-3 p-4">
+                                    <Music className="mt-0.5 h-4 w-4 shrink-0 text-[#b94830] dark:text-[#f1b19b]" />
+                                    <p className="text-muted-foreground text-xs leading-relaxed">
+                                        Tombol musik di sisi kiri mengaktifkan atau mematikan audio ruangan.
+                                    </p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="border-border bg-muted/50 grid shrink-0 gap-2 border-t p-4 sm:grid-cols-[1fr_auto] sm:px-7">
+                            <Button
+                                onClick={() => setShowVisitorGuide(false)}
+                                className="h-11 justify-between rounded-none bg-[#d85c3e] px-5 font-semibold text-white hover:bg-[#b94830]"
+                            >
+                                Mulai menjelajah
+                                <ArrowRight className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={handleCloseVisitorGuide}
+                                className="text-muted-foreground hover:bg-accent hover:text-foreground h-11 rounded-none px-5 text-xs"
+                            >
+                                Jangan tampilkan lagi
+                            </Button>
                         </div>
                     </DialogContent>
                 </Dialog>

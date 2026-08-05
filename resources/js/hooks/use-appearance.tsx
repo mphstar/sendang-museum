@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export type Appearance = 'light' | 'dark' | 'system';
+const APPEARANCE_EVENT = 'appearance-change';
 
 const prefersDark = () => {
     if (typeof window === 'undefined') {
@@ -23,6 +24,7 @@ const applyTheme = (appearance: Appearance) => {
     const isDark = appearance === 'dark' || (appearance === 'system' && prefersDark());
 
     document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
 };
 
 const mediaQuery = () => {
@@ -48,7 +50,10 @@ export function initializeTheme() {
 }
 
 export function useAppearance() {
-    const [appearance, setAppearance] = useState<Appearance>('system');
+    const [appearance, setAppearance] = useState<Appearance>(() => {
+        if (typeof window === 'undefined') return 'system';
+        return (localStorage.getItem('appearance') as Appearance | null) || 'system';
+    });
 
     const updateAppearance = useCallback((mode: Appearance) => {
         setAppearance(mode);
@@ -60,14 +65,23 @@ export function useAppearance() {
         setCookie('appearance', mode);
 
         applyTheme(mode);
+        window.dispatchEvent(new CustomEvent<Appearance>(APPEARANCE_EVENT, { detail: mode }));
     }, []);
 
     useEffect(() => {
         const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-        updateAppearance(savedAppearance || 'system');
+        const mode = savedAppearance || 'system';
+        setAppearance(mode);
+        applyTheme(mode);
 
-        return () => mediaQuery()?.removeEventListener('change', handleSystemThemeChange);
-    }, [updateAppearance]);
+        const handleAppearanceChange = (event: Event) => {
+            setAppearance((event as CustomEvent<Appearance>).detail);
+        };
+
+        window.addEventListener(APPEARANCE_EVENT, handleAppearanceChange);
+
+        return () => window.removeEventListener(APPEARANCE_EVENT, handleAppearanceChange);
+    }, []);
 
     return { appearance, updateAppearance } as const;
 }
