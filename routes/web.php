@@ -75,6 +75,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{ruangan}/markers/{marker}/media', [RuanganController::class, 'deleteMarkerMedia'])->name('museum.ruangan.markers.delete-media')->where('marker', '[0-9]+');
             Route::delete('{ruangan}/markers/{marker}', [RuanganController::class, 'destroyMarker'])->name('museum.ruangan.markers.destroy')->where('marker', '[0-9]+');
         });
+
+        // Gallery routes nested under museum
+        Route::prefix('{museum}/gallery')->where(['museum' => '[0-9]+'])->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\GalleryController::class, 'index'])->name('museum.gallery.index');
+            Route::post('store', [\App\Http\Controllers\Admin\GalleryController::class, 'store'])->name('museum.gallery.store');
+            Route::post('update/{gallery}', [\App\Http\Controllers\Admin\GalleryController::class, 'update'])->name('museum.gallery.update');
+            Route::post('delete/{gallery}', [\App\Http\Controllers\Admin\GalleryController::class, 'destroy'])->name('museum.gallery.destroy');
+            Route::post('upload-media', [\App\Http\Controllers\Admin\GalleryController::class, 'uploadMedia'])->name('museum.gallery.upload-media');
+        });
     });
 
     Route::prefix('ruangan')->group(function () {

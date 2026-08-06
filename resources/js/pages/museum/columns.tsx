@@ -207,6 +207,11 @@ export const columns: ColumnDef<MuseumType>[] = [
                             >Kelola Ruangan</DropdownMenuItem>
                             <DropdownMenuItem
                                 onSelect={() => {
+                                    router.visit(route('museum.gallery.index', payment.id));
+                                }}
+                            >Kelola Galeri</DropdownMenuItem>
+                            <DropdownMenuItem
+                                onSelect={() => {
                                     // Tutup dialog edit jika masih terbuka agar tidak ada dua overlay menumpuk
                                     if (store.open) {
                                         store.setOpen(false);

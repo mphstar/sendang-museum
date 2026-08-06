@@ -44,6 +44,7 @@ class RuanganController extends Controller
             'nama_ruangan' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:ruangan,slug',
             'is_main' => 'nullable|boolean',
+            'projection_type' => 'nullable|string|in:equirectangular,little_planet,flat',
             'panorama_image' => 'nullable',
             'audio_guide_file' => 'nullable|file|mimes:mp3,wav,ogg',
         ]);
@@ -100,6 +101,7 @@ class RuanganController extends Controller
             'nama_ruangan' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:ruangan,slug,'.$ruangan->id,
             'is_main' => 'nullable|boolean',
+            'projection_type' => 'nullable|string|in:equirectangular,little_planet,flat',
             'panorama_image' => 'nullable',
             'audio_guide_file' => 'nullable|file|mimes:mp3,wav,ogg',
         ]);

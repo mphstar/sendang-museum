@@ -3,16 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Museum;
-use App\Models\Ruangan;
 use App\Models\Setting;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class FrontendController extends Controller
 {
     public function index()
     {
-        $museum = Museum::with(['overlays', 'ruangan' => function($query) {
+        $museum = Museum::with(['overlays', 'galleries', 'ruangan' => function($query) {
             $query->orderBy('is_main', 'desc')->orderBy('created_at', 'asc');
         }])->get();
         
@@ -26,7 +24,7 @@ class FrontendController extends Controller
 
     public function showPanorama(Museum $museum)
     {
-        // Load all ruangan with their markers for this museum
+        $museum->load('galleries');
         $allRuangan = $museum->ruangan()->with('markers')->get();
         
         if ($allRuangan->isEmpty()) {

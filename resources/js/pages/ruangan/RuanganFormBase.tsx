@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Upload, Image, Music, Save, ArrowLeft } from 'lucide-react';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 interface Props {
     item?: any | null;
     mode: 'create' | 'edit';
@@ -18,6 +20,7 @@ const defaultValues = {
     nama_ruangan: '',
     slug: '',
     is_main: false,
+    projection_type: 'equirectangular',
     panorama_url: '',
     audio_guide_url: ''
 };
@@ -217,6 +220,29 @@ export default function RuanganFormBase({ item, mode, museum }: Props) {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="projection_type">Tipe Format Foto 360°</Label>
+                                    <Select
+                                        value={data.projection_type || 'equirectangular'}
+                                        onValueChange={(val) => setData('projection_type', val)}
+                                    >
+                                        <SelectTrigger id="projection_type">
+                                            <SelectValue placeholder="Pilih Format Proyeksi" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="equirectangular">
+                                                Datar / Standar 360° (Equirectangular 2:1) — Gambar Persegi Panjang Datar
+                                            </SelectItem>
+                                            <SelectItem value="little_planet">
+                                                Lingkaran / Globe (Little Planet / Stereographic Fisheye) — Gambar Format Lingkaran Fisheye
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Pilih "Datar / Standar" jika foto berupa panorama 2:1 biasa, atau pilih "Lingkaran / Globe" jika foto berupa lingkaran fisheye/stereographic.
+                                    </p>
+                                </div>
+
                                 <div className="space-y-2">
                                     <Label htmlFor="panorama_image">Upload Panorama</Label>
                                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">

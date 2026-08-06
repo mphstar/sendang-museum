@@ -39,4 +39,9 @@ class Museum extends Model
     {
         return $this->hasMany(Ruangan::class, 'museum_id');
     }
+
+    public function galleries()
+    {
+        return $this->hasMany(Gallery::class, 'museum_id')->orderBy('order', 'asc');
+    }
 }

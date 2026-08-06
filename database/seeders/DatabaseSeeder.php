@@ -2,8 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\Museum;
+use App\Models\Gallery;
 use App\Models\MarkerRuangan;
+use App\Models\Museum;
 use App\Models\Ruangan;
 use App\Models\Setting;
 use App\Models\User;
@@ -95,6 +96,29 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
+        // Seed galleries for Museum 1
+        Gallery::updateOrCreate(
+            ['museum_id' => $museum1->id, 'title' => 'Arca Batu Megalitikum Jember'],
+            [
+                'description' => 'Penemuan arca megalitikum sejarah di kawasan pegunungan Jember abad pertengahan.',
+                'media_type' => 'image',
+                'media_url' => 'https://images.unsplash.com/photo-1565008447742-97f6f38c985c?auto=format&fit=crop&w=1200&q=80',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1565008447742-97f6f38c985c?auto=format&fit=crop&w=600&q=80',
+                'order' => 1,
+            ]
+        );
+
+        Gallery::updateOrCreate(
+            ['museum_id' => $museum1->id, 'title' => 'Dokumentasi Tur Virtual Museum'],
+            [
+                'description' => 'Video dokumentasi singkat pengenalan koleksi budaya digital Jember.',
+                'media_type' => 'video',
+                'media_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1518998053901-5348d3961a04?auto=format&fit=crop&w=600&q=80',
+                'order' => 2,
+            ]
+        );
+
         // Museum 2: Museum Tembakau Jember
         $museum2 = Museum::updateOrCreate(['slug' => 'museum-tembakau-jember'], [
             'title' => 'Museum Tembakau & Budaya Jember',
@@ -163,6 +187,28 @@ class DatabaseSeeder extends Seeder
                 'position_pitch' => -0.15,
             ],
         );
+
+        // Seed galleries for Museum 2
+        Gallery::updateOrCreate(
+            ['museum_id' => $museum2->id, 'title' => 'Daun Tembakau Besuki Na-Oogst Legendaris'],
+            [
+                'description' => 'Daun tembakau pilihan kualitas ekspor premium untuk balutan cerutu terbaik dunia.',
+                'media_type' => 'image',
+                'media_url' => 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?auto=format&fit=crop&w=1200&q=80',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?auto=format&fit=crop&w=600&q=80',
+                'order' => 1,
+            ]
+        );
+
+        Gallery::updateOrCreate(
+            ['museum_id' => $museum2->id, 'title' => 'Proses Pengeringan Tembakau Tradisional'],
+            [
+                'description' => 'Proses pengeringan daun tembakau di dalam gudang atap bambu khas Jember.',
+                'media_type' => 'image',
+                'media_url' => 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1200&q=80',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80',
+                'order' => 2,
+            ]
+        );
     }
 }
-

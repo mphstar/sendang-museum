@@ -2,6 +2,7 @@ import MuseumInfoSidebar from '@/components/MuseumInfoSidebar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Head, router, usePage } from '@inertiajs/react';
+import { GalleryModal } from '@/components/organisms/GalleryModal';
 import {
     ArrowLeft,
     ArrowRight,
@@ -9,6 +10,7 @@ import {
     Circle,
     Compass,
     Hand,
+    Image as ImageIcon,
     Info,
     Layers,
     Menu,
@@ -68,10 +70,27 @@ export default function PanoramaViewer() {
     const [selectedMarker, setSelectedMarker] = useState<any>(null);
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
-    // Navigation & Guide state
+    // Navigation, Guide & Gallery state
     const [showVisitorGuide, setShowVisitorGuide] = useState(false);
     const [showSidebar, setShowSidebar] = useState(false);
+    const [showGallery, setShowGallery] = useState(false);
     const [projectionMode, setProjectionMode] = useState<'immersive' | 'planet'>('immersive');
+
+    // Dynamically toggle PhotoSphereViewer projection mode (Immersive 360 vs Globe Little Planet)
+    useEffect(() => {
+        if (!viewer) return;
+        try {
+            if (projectionMode === 'planet') {
+                viewer.setOption('fisheye', 2);
+                viewer.animate({ fov: 130, speed: '2rpm' });
+            } else {
+                viewer.setOption('fisheye', 0);
+                viewer.animate({ fov: 75, speed: '2rpm' });
+            }
+        } catch (e) {
+            console.error('Error toggling projection mode:', e);
+        }
+    }, [projectionMode, viewer]);
 
     // Autopilot / Auto-rotate state
     const [isAutoRotating, setIsAutoRotating] = useState(false);
@@ -478,7 +497,7 @@ export default function PanoramaViewer() {
 
                 const generatedMarkers = generateMarkers();
 
-                const newViewer = new Viewer({
+                const viewerConfig: any = {
                     container: viewerRef.current,
                     panorama: activeRuangan.panorama_url,
                     plugins: [
@@ -501,7 +520,14 @@ export default function PanoramaViewer() {
                         width: '100%',
                         height: '100%',
                     },
-                });
+                };
+
+                if (activeRuangan?.projection_type === 'little_planet') {
+                    const { LittlePlanetAdapter } = await import('@photo-sphere-viewer/little-planet-adapter');
+                    viewerConfig.adapter = [LittlePlanetAdapter];
+                }
+
+                const newViewer = new Viewer(viewerConfig);
 
                 setPanoramaLoaded(true);
 
@@ -787,11 +813,26 @@ export default function PanoramaViewer() {
                         {/* Snapshot Souvenir Camera */}
                         <button
                             onClick={takeSouvenirSnapshot}
-                            className="glass-pill flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/15 transition"
+                            className="glass-pill flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/15 transition cursor-pointer"
                             title="Ambil Foto Kenangan 360°"
                         >
                             <Camera className="h-3.5 w-3.5 text-[#f1b19b]" />
                             <span className="hidden sm:inline">Foto Kenangan</span>
+                        </button>
+
+                        {/* Galeri Media Museum Button */}
+                        <button
+                            onClick={() => setShowGallery(true)}
+                            className="glass-pill flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/15 transition cursor-pointer"
+                            title="Galeri Foto & Video Museum"
+                        >
+                            <ImageIcon className="h-3.5 w-3.5 text-[#f1b19b]" />
+                            <span className="hidden sm:inline">Galeri Media</span>
+                            {museum.galleries && museum.galleries.length > 0 && (
+                                <span className="ml-0.5 rounded-full bg-[#d85c3e] px-1.5 py-0.2 text-[9px] font-bold text-white">
+                                    {museum.galleries.length}
+                                </span>
+                            )}
                         </button>
 
                         {/* Projection Mode Switcher */}
@@ -1077,6 +1118,13 @@ export default function PanoramaViewer() {
                     isOpen={showSidebar}
                     onClose={() => setShowSidebar(false)}
                     onOpenGuide={() => setShowVisitorGuide(true)}
+                />
+                {/* Museum Media Gallery Modal */}
+                <GalleryModal
+                    isOpen={showGallery}
+                    onClose={() => setShowGallery(false)}
+                    museumName={museum.title}
+                    galleries={museum.galleries || []}
                 />
             </div>
         </>
