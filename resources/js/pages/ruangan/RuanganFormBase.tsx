@@ -45,7 +45,11 @@ export default function RuanganFormBase({ item, mode, museum }: Props) {
 
     useEffect(() => {
         if (editing) {
-            setData({ ...defaultValues, ...item });
+            setData({
+                ...defaultValues,
+                ...item,
+                projection_type: item.projection_type || 'equirectangular',
+            });
             if (item.panorama_url) {
                 setPanoramaPreview(item.panorama_url);
             }
@@ -102,10 +106,11 @@ export default function RuanganFormBase({ item, mode, museum }: Props) {
 
         const url = editing ? route('museum.ruangan.update', [museum.id, item.id]) : route('museum.ruangan.store', museum.id);
 
-        // Transform data for submission (serialize boolean as 1/0)
+        // Transform data for submission (serialize boolean as 1/0 and ensure projection_type default)
         transform((form) => ({
             ...form,
             is_main: form.is_main ? '1' : '0',
+            projection_type: form.projection_type || 'equirectangular',
         }));
 
         // Use useForm.post to enable `processing` state and auto-handle files
@@ -231,10 +236,10 @@ export default function RuanganFormBase({ item, mode, museum }: Props) {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="equirectangular">
-                                                Datar / Standar 360° (Equirectangular 2:1) — Gambar Persegi Panjang Datar
+                                                Datar / Standar 360° (Equirectangular 2:1) — Gambar Panorama Persegi Panjang Datar
                                             </SelectItem>
-                                            <SelectItem value="little_planet">
-                                                Lingkaran / Globe (Little Planet / Stereographic Fisheye) — Gambar Format Lingkaran Fisheye
+                                            <SelectItem value="dual_fisheye">
+                                                Dual Fisheye 360° (Ricoh Theta / Insta360 / Gear 360) — Foto Mentah Kamera 360 (2 Lingkaran Berdampingan)
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>

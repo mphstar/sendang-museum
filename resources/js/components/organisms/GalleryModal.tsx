@@ -236,7 +236,7 @@ export function GalleryModal({ isOpen, onClose, museumName, galleries }: Props) 
                                     <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#f1b19b]">
-                                                {selectedItem.media_type === 'video' ? 'Video Player' : 'Lightbox Preview'}
+                                                {selectedItem.media_type === 'video' ? 'Video' : 'Foto'}
                                             </span>
                                             <h3 className="truncate text-base font-bold text-white">
                                                 {selectedItem.title}

@@ -44,13 +44,14 @@ class RuanganController extends Controller
             'nama_ruangan' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:ruangan,slug',
             'is_main' => 'nullable|boolean',
-            'projection_type' => 'nullable|string|in:equirectangular,little_planet,flat',
+            'projection_type' => 'nullable|string|in:equirectangular,little_planet,flat,dual_fisheye',
             'panorama_image' => 'nullable',
             'audio_guide_file' => 'nullable|file|mimes:mp3,wav,ogg',
         ]);
 
         // Convert is_main to boolean
         $validated['is_main'] = filter_var($validated['is_main'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $validated['projection_type'] = $validated['projection_type'] ?? 'equirectangular';
 
         // Auto-generate slug if empty
         if (empty($validated['slug'])) {
@@ -101,13 +102,14 @@ class RuanganController extends Controller
             'nama_ruangan' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:ruangan,slug,'.$ruangan->id,
             'is_main' => 'nullable|boolean',
-            'projection_type' => 'nullable|string|in:equirectangular,little_planet,flat',
+            'projection_type' => 'nullable|string|in:equirectangular,little_planet,flat,dual_fisheye',
             'panorama_image' => 'nullable',
             'audio_guide_file' => 'nullable|file|mimes:mp3,wav,ogg',
         ]);
 
         // Convert is_main to boolean
         $validated['is_main'] = filter_var($validated['is_main'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $validated['projection_type'] = $validated['projection_type'] ?? 'equirectangular';
 
         if ($request->hasFile('panorama_image')) {
             $file = $request->file('panorama_image');

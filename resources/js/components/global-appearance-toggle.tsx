@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAppearance } from '@/hooks/use-appearance';
+import { usePage } from '@inertiajs/react';
 import { Check, Monitor, Moon, Sun } from 'lucide-react';
 
 const options = [
@@ -12,6 +13,10 @@ const options = [
 export function GlobalAppearanceToggle() {
     const { appearance, updateAppearance } = useAppearance();
     const ActiveIcon = options.find((option) => option.value === appearance)?.icon ?? Monitor;
+
+    // Hide on panorama viewer — it has its own inline theme toggle in the header
+    const { component } = usePage();
+    if (component === 'frontend/PanoramaViewer') return null;
 
     return (
         <div className="fixed right-5 bottom-32 z-[10000] print:hidden">

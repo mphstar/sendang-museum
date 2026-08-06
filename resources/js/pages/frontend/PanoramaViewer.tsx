@@ -3,6 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Head, router, usePage } from '@inertiajs/react';
 import { GalleryModal } from '@/components/organisms/GalleryModal';
+import { useAppearance } from '@/hooks/use-appearance';
+import { Viewer } from '@photo-sphere-viewer/core';
+import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
+import { DualFisheyeAdapter } from '@photo-sphere-viewer/dual-fisheye-adapter';
+import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin';
+import '@photo-sphere-viewer/core/index.css';
+import '@photo-sphere-viewer/markers-plugin/index.css';
 import {
     ArrowLeft,
     ArrowRight,
@@ -11,9 +18,9 @@ import {
     Compass,
     Hand,
     Image as ImageIcon,
-    Info,
-    Layers,
     Menu,
+    Monitor,
+    Moon,
     MousePointerClick,
     Music,
     Music2,
@@ -22,9 +29,7 @@ import {
     RotateCw,
     Scan,
     Sparkles,
-    Volume2,
-    VolumeX,
-    ZoomIn,
+    Sun,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -53,6 +58,9 @@ const markerStyles = `
 `;
 
 export default function PanoramaViewer() {
+    const { appearance, updateAppearance } = useAppearance();
+
+    const ThemeIcon = appearance === 'dark' ? Moon : appearance === 'light' ? Sun : Monitor;
     const { museum, allRuangan } = usePage().props as any;
 
     const mainRuangan = allRuangan?.find((r: any) => r.is_main) || allRuangan?.[0];
@@ -69,6 +77,43 @@ export default function PanoramaViewer() {
     const [showInfoDialog, setShowInfoDialog] = useState(false);
     const [selectedMarker, setSelectedMarker] = useState<any>(null);
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+    // Preloaded image URL cache to prevent duplicate network requests
+    const preloadedUrlsRef = useRef<Set<string>>(new Set());
+
+    // Function to preload a single 360 panorama image in the background
+    const preloadPanoramaUrl = useCallback((url: string) => {
+        if (!url || preloadedUrlsRef.current.has(url)) return;
+        preloadedUrlsRef.current.add(url);
+        const img = new Image();
+        img.src = url;
+    }, []);
+
+    // Intelligent Background Idle Preloader:
+    // When active room panorama finishes loading, automatically preload connected neighbor rooms
+    useEffect(() => {
+        if (!panoramaLoaded || !activeRuangan) return;
+
+        const navTargetIds = (activeRuangan.markers || [])
+            .filter((m: any) => m.type === 'navigation' && m.navigation_target)
+            .map((m: any) => Number(m.navigation_target));
+
+        const targetRooms = allRuangan.filter((r: any) => navTargetIds.includes(r.id));
+
+        const preloadNeighborRooms = () => {
+            targetRooms.forEach((room: any) => {
+                if (room.panorama_url) {
+                    preloadPanoramaUrl(room.panorama_url);
+                }
+            });
+        };
+
+        if ('requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(preloadNeighborRooms, { timeout: 3000 });
+        } else {
+            setTimeout(preloadNeighborRooms, 1000);
+        }
+    }, [panoramaLoaded, activeRuangan, allRuangan, preloadPanoramaUrl]);
 
     // Navigation, Guide & Gallery state
     const [showVisitorGuide, setShowVisitorGuide] = useState(false);
@@ -492,14 +537,18 @@ export default function PanoramaViewer() {
                     await new Promise((resolve) => setTimeout(resolve, 50));
                 }
 
-                const { Viewer } = await import('@photo-sphere-viewer/core');
-                const { MarkersPlugin } = await import('@photo-sphere-viewer/markers-plugin');
-
                 const generatedMarkers = generateMarkers();
+
+                let resolvedPanoramaUrl = activeRuangan.panorama_url;
+                try {
+                    resolvedPanoramaUrl = new URL(activeRuangan.panorama_url, window.location.origin).href;
+                } catch {}
+
+                const isLittlePlanetType = activeRuangan?.projection_type === 'little_planet' || projectionMode === 'planet';
 
                 const viewerConfig: any = {
                     container: viewerRef.current,
-                    panorama: activeRuangan.panorama_url,
+                    panorama: resolvedPanoramaUrl,
                     plugins: [
                         [
                             MarkersPlugin,
@@ -508,11 +557,26 @@ export default function PanoramaViewer() {
                                 clickEventOnMarker: true,
                             },
                         ],
+                        [
+                            AutorotatePlugin,
+                            {
+                                autostartDelay: 1200,
+                                autorotateSpeed: '0.8rpm',
+                                autorotatePitch: 0,
+                            },
+                        ],
                     ],
-                    navbar: ['zoom', 'fullscreen'],
+                    navbar: [
+                        'zoom',
+                        'autorotate',
+                        'fullscreen',
+                    ],
+                    loadingTxt: '',
+                    loadingImg: '',
+                    showLoader: false,
                     defaultZoomLvl: 0,
-                    fisheye: projectionMode === 'planet' ? 2 : false,
-                    defaultPitch: projectionMode === 'planet' ? -Math.PI / 2 : 0,
+                    fisheye: isLittlePlanetType ? 2 : 0,
+                    defaultPitch: isLittlePlanetType ? -Math.PI / 2 : 0,
                     mousewheel: true,
                     mousemove: true,
                     keyboard: true,
@@ -520,11 +584,36 @@ export default function PanoramaViewer() {
                         width: '100%',
                         height: '100%',
                     },
+                    panoData: (image: HTMLImageElement) => {
+                        const fullWidth = image.width;
+                        const fullHeight = Math.round(image.width / 2);
+                        const isStandardEquirect = Math.abs(image.height - fullHeight) < fullHeight * 0.15;
+
+                        if (isStandardEquirect) {
+                            return {
+                                fullWidth: image.width,
+                                fullHeight: image.height,
+                                croppedWidth: image.width,
+                                croppedHeight: image.height,
+                                croppedX: 0,
+                                croppedY: 0,
+                            };
+                        }
+
+                        // Auto-adapt circular fisheye or non 2:1 ratio images for 360 rendering
+                        return {
+                            fullWidth: image.width,
+                            fullHeight: fullHeight,
+                            croppedWidth: image.width,
+                            croppedHeight: Math.min(image.height, fullHeight),
+                            croppedX: 0,
+                            croppedY: Math.max(0, Math.round((fullHeight - image.height) / 2)),
+                        };
+                    },
                 };
 
-                if (activeRuangan?.projection_type === 'little_planet') {
-                    const { LittlePlanetAdapter } = await import('@photo-sphere-viewer/little-planet-adapter');
-                    viewerConfig.adapter = [LittlePlanetAdapter];
+                if (activeRuangan?.projection_type === 'dual_fisheye') {
+                    viewerConfig.adapter = DualFisheyeAdapter;
                 }
 
                 const newViewer = new Viewer(viewerConfig);
@@ -768,144 +857,150 @@ export default function PanoramaViewer() {
 
             <div className="museum-panorama relative h-screen w-screen overflow-hidden bg-[#0b0d0f]">
                 {/* Sci-Fi Glass HUD Header Bar */}
-                <div className="glass-panel absolute top-0 left-0 right-0 z-[70] flex items-center justify-between border-b border-white/10 px-4 py-3 md:px-8">
-                    {/* Left: Back & Room Breadcrumb */}
-                    <div className="flex items-center gap-3 min-w-0">
+                <div className="glass-panel absolute top-0 left-0 right-0 z-[70] flex items-center gap-2 border-b border-black/10 px-3 py-2.5 md:px-4 dark:border-white/10 bg-white/40 dark:bg-black/10">
+                    {/* Left: Burger Menu + Back Button */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {/* Burger Menu */}
+                        <button
+                            onClick={() => setShowSidebar(true)}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full border border-[#d85c3e] bg-[#d85c3e] text-white shadow-md transition hover:bg-[#b94830] active:scale-95 ${
+                                showSidebar ? 'opacity-30 pointer-events-none' : 'opacity-100'
+                            }`}
+                            title="Menu Museum"
+                        >
+                            <Menu className="h-4 w-4" />
+                        </button>
+
+                        {/* Back Button */}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => router.visit('/')}
-                            className="flex-shrink-0 rounded-full border border-white/15 bg-white/5 px-3 text-xs text-white hover:bg-white/15"
+                            className="flex-shrink-0 rounded-full border border-black/15 bg-black/5 px-2.5 py-1.5 text-xs h-9 dark:border-white/15 dark:bg-white/5 text-gray-700 hover:bg-black/10 dark:text-white dark:hover:bg-white/15"
                         >
-                            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                            <span>Kembali</span>
+                            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                            <span className="hidden sm:inline">Kembali</span>
                         </Button>
+                    </div>
 
-                        <div className="min-w-0 flex-col flex">
-                            <div className="flex items-center gap-2">
-                                <span className="museum-kicker text-[9px] tracking-widest text-[#f1b19b] truncate">
-                                    {museum.title}
-                                </span>
-                                <span className="glass-pill rounded-full px-2 py-0.2 text-[9px] font-bold text-white/80">
-                                    Ruang {allRuangan.findIndex((room: any) => room.id === activeRuangan.id) + 1}/{allRuangan.length}
-                                </span>
-                            </div>
-                            <h1 className="truncate text-sm font-bold text-white md:text-base">{activeRuangan.nama_ruangan}</h1>
+                    {/* Center: Room Breadcrumb (flex-1 so it takes remaining space) */}
+                    <div className="min-w-0 flex-1 flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                            <span className="museum-kicker text-[9px] tracking-widest text-[#f1b19b] truncate hidden sm:block">
+                                {museum.title}
+                            </span>
+                            /* Room pill + title use adaptive colors over the glass header */
+                            <span className="glass-pill rounded-full px-2 py-0.5 text-[9px] font-bold text-gray-700 dark:text-white/80">
+                                {allRuangan.findIndex((room: any) => room.id === activeRuangan.id) + 1}/{allRuangan.length}
+                            </span>
                         </div>
+                        <h1 className="truncate text-sm font-bold text-gray-900 leading-tight dark:text-white">{activeRuangan.nama_ruangan}</h1>
                     </div>
 
                     {/* Right: HUD Control Ribbon */}
-                    <div className="flex items-center gap-2">
-                        {/* Auto-Rotate Autopilot Toggle */}
+                    <div className="flex scrollbar-none items-center gap-1.5 min-w-0 shrink overflow-x-auto md:overflow-visible">
+                        {/* Audio Guide (only if available) */}
+                        {activeRuangan?.audio_guide_url && (
+                            <button
+                                onClick={() => {
+                                    if (roomAudioRef.current) {
+                                        if (isPlayingRoomAudio) {
+                                            roomAudioRef.current.pause();
+                                            setIsPlayingRoomAudio(false);
+                                        } else {
+                                            roomAudioRef.current
+                                                .play()
+                                                .then(() => setIsPlayingRoomAudio(true))
+                                                .catch(() => {});
+                                        }
+                                    }
+                                }}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                                    isPlayingRoomAudio
+                                        ? 'border-[#d85c3e] bg-[#d85c3e]/30 text-[#f1b19b] shadow-[0_0_15px_rgba(216,92,62,0.4)]'
+                                        : 'border-black/15 bg-black/5 text-gray-600 hover:bg-black/10 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/15 dark:hover:text-white'
+                                }`}
+                                title={isPlayingRoomAudio ? 'Matikan Audio Pemandu' : 'Putar Audio Pemandu'}
+                            >
+                                {isPlayingRoomAudio ? <Music2 className="h-3.5 w-3.5 animate-pulse" /> : <Music className="h-3.5 w-3.5" />}
+                            </button>
+                        )}
+
+                        {/* Auto-Rotate Toggle */}
                         <button
                             onClick={toggleAutoRotate}
-                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                            className={`flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition ${
                                 isAutoRotating
                                     ? 'border-[#d85c3e] bg-[#d85c3e]/30 text-[#f1b19b] shadow-[0_0_15px_rgba(216,92,62,0.4)]'
-                                    : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                                    : 'border-black/15 bg-black/5 text-gray-600 hover:bg-black/10 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/15 dark:hover:text-white'
                             }`}
                             title="Tur Otomatis (Autopilot 360)"
                         >
                             <RotateCw className={`h-3.5 w-3.5 ${isAutoRotating ? 'animate-spin' : ''}`} />
-                            <span className="hidden sm:inline">{isAutoRotating ? 'Tur Otomatis On' : 'Tur Otomatis'}</span>
+                            <span className="hidden md:inline">{isAutoRotating ? 'Auto On' : 'Auto'}</span>
                         </button>
 
-                        {/* Snapshot Souvenir Camera */}
+                        {/* Snapshot Camera — hidden on very small screens */}
                         <button
                             onClick={takeSouvenirSnapshot}
-                            className="glass-pill flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/15 transition cursor-pointer"
+                            className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full border border-black/15 bg-black/5 text-gray-700 hover:bg-black/10 transition cursor-pointer dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/15"
                             title="Ambil Foto Kenangan 360°"
                         >
                             <Camera className="h-3.5 w-3.5 text-[#f1b19b]" />
-                            <span className="hidden sm:inline">Foto Kenangan</span>
                         </button>
 
-                        {/* Galeri Media Museum Button */}
+                        {/* Gallery Button — hidden on very small screens */}
                         <button
                             onClick={() => setShowGallery(true)}
-                            className="glass-pill flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/15 transition cursor-pointer"
+                            className="hidden sm:flex h-9 items-center gap-1.5 rounded-full border border-black/15 bg-black/5 px-2.5 text-xs font-semibold text-gray-700 hover:bg-black/10 transition cursor-pointer dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/15"
                             title="Galeri Foto & Video Museum"
                         >
                             <ImageIcon className="h-3.5 w-3.5 text-[#f1b19b]" />
-                            <span className="hidden sm:inline">Galeri Media</span>
+                            <span className="hidden lg:inline">Galeri</span>
                             {museum.galleries && museum.galleries.length > 0 && (
-                                <span className="ml-0.5 rounded-full bg-[#d85c3e] px-1.5 py-0.2 text-[9px] font-bold text-white">
+                                <span className="rounded-full bg-[#d85c3e] px-1.5 py-0.5 text-[9px] font-bold text-white">
                                     {museum.galleries.length}
                                 </span>
                             )}
                         </button>
 
                         {/* Projection Mode Switcher */}
-                        <div className="glass-pill flex items-center p-0.5 rounded-full border border-white/15">
+                        <div className="flex items-center p-0.5 rounded-full border border-black/15 bg-black/5 dark:border-white/15 dark:bg-white/5">
                             <button
                                 type="button"
                                 onClick={() => setProjectionMode('immersive')}
-                                className={`flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition ${
-                                    projectionMode === 'immersive' ? 'bg-[#d85c3e] text-white' : 'text-white/60 hover:text-white'
+                                className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                                    projectionMode === 'immersive' ? 'bg-[#d85c3e] text-white' : 'text-gray-600 hover:text-gray-900 dark:text-white/60 dark:hover:text-white'
                                 }`}
                                 title="Mode 360 Imersif"
                             >
                                 <Scan className="h-3 w-3" />
-                                <span className="hidden sm:inline">360°</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setProjectionMode('planet')}
-                                className={`flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition ${
-                                    projectionMode === 'planet' ? 'bg-[#d85c3e] text-white' : 'text-white/60 hover:text-white'
+                                className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                                    projectionMode === 'planet' ? 'bg-[#d85c3e] text-white' : 'text-gray-600 hover:text-gray-900 dark:text-white/60 dark:hover:text-white'
                                 }`}
                                 title="Mode Globe / Little Planet"
                             >
                                 <Circle className="h-3 w-3" />
-                                <span className="hidden sm:inline">Globe</span>
                             </button>
                         </div>
                     </div>
-                </div>
 
-                {/* Left Floating Menu & Ambient Audio Control */}
-                <div
-                    className={`fixed top-24 left-4 z-[70] flex flex-col gap-2 transition-all duration-300 ${
-                        showSidebar ? 'pointer-events-none opacity-0' : 'opacity-100'
-                    }`}
-                >
-                    <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => setShowSidebar(true)}
-                        className="glass-panel flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-[#d85c3e] p-0 text-white shadow-lg transition hover:bg-[#b94830]"
-                        title="Buku Induk Museum & Ruangan"
+                    {/* Divider + Theme Toggle pinned outside the scrollable ribbon so it stays visible on mobile */}
+                    <span className="hidden md:block h-5 w-px mx-0.5 flex-shrink-0 bg-black/15 dark:bg-white/15" aria-hidden="true" />
+                    <button
+                        onClick={() => {
+                            const next = appearance === 'dark' ? 'light' : appearance === 'light' ? 'system' : 'dark';
+                            updateAppearance(next);
+                        }}
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-black/15 bg-black/5 text-gray-700 hover:bg-black/10 transition dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/15 dark:hover:text-white"
+                        title={`Tema: ${appearance === 'dark' ? 'Gelap' : appearance === 'light' ? 'Terang' : 'Sistem'} — klik untuk ganti`}
                     >
-                        <Menu className="h-4 w-4" />
-                    </Button>
-
-                    {activeRuangan?.audio_guide_url && (
-                        <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => {
-                                if (roomAudioRef.current) {
-                                    if (isPlayingRoomAudio) {
-                                        roomAudioRef.current.pause();
-                                        setIsPlayingRoomAudio(false);
-                                    } else {
-                                        roomAudioRef.current
-                                            .play()
-                                            .then(() => setIsPlayingRoomAudio(true))
-                                            .catch(() => {});
-                                    }
-                                }
-                            }}
-                            className={`glass-panel flex h-10 w-10 items-center justify-center rounded-full border p-0 transition ${
-                                isPlayingRoomAudio
-                                    ? 'border-[#d85c3e] bg-[#d85c3e]/30 text-[#f1b19b] shadow-[0_0_15px_rgba(216,92,62,0.4)]'
-                                    : 'border-white/15 bg-black/40 text-white/70 hover:text-white'
-                            }`}
-                            title={isPlayingRoomAudio ? 'Matikan Audio Pemandu' : 'Putar Audio Pemandu'}
-                        >
-                            {isPlayingRoomAudio ? <Music2 className="h-4 w-4 animate-pulse" /> : <Music className="h-4 w-4" />}
-                        </Button>
-                    )}
+                        <ThemeIcon className="h-3.5 w-3.5 text-[#d85c3e] dark:text-[#f1b19b]" />
+                    </button>
                 </div>
 
                 {/* Camera Orientation Compass Widget (Top Right) */}
@@ -935,38 +1030,6 @@ export default function PanoramaViewer() {
                     </div>
                 )}
 
-                {/* Bottom Interactive Room Switcher Ribbon */}
-                {allRuangan && allRuangan.length > 1 && (
-                    <div className="glass-panel fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] flex max-w-[92vw] items-center gap-2 overflow-x-auto rounded-full border border-white/15 p-1.5 scrollbar-none">
-                        {allRuangan.map((room: any, index: number) => {
-                            const isActive = room.id === activeRuangan.id;
-                            return (
-                                <button
-                                    key={room.id}
-                                    onClick={() => switchToRoom(room.id)}
-                                    className={`group relative flex items-center gap-2.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-                                        isActive
-                                            ? 'bg-[#d85c3e] text-white shadow-[0_0_16px_rgba(216,92,62,0.4)]'
-                                            : 'bg-white/5 text-white/70 hover:bg-white/15 hover:text-white'
-                                    }`}
-                                >
-                                    <span className="font-mono text-[10px] opacity-70">#{index + 1}</span>
-                                    <span className="truncate max-w-[120px]">{room.nama_ruangan}</span>
-                                    {room.markers && room.markers.length > 0 && (
-                                        <span
-                                            className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold ${
-                                                isActive ? 'bg-black/30 text-white' : 'bg-white/10 text-white/60'
-                                            }`}
-                                        >
-                                            {room.markers.length}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-
                 {/* Marker Info Dialog */}
                 <Dialog
                     open={showInfoDialog}
@@ -983,17 +1046,17 @@ export default function PanoramaViewer() {
                         }
                     }}
                 >
-                    <DialogContent className="z-[140] max-w-lg border-white/15 bg-[#111417] text-[#f2efe8] p-6 rounded-2xl">
+                    <DialogContent className="z-[140] max-w-lg border-black/10 bg-white p-6 rounded-2xl dark:border-white/15 dark:bg-[#111417] text-gray-900 dark:text-[#f2efe8]">
                         <DialogHeader>
                             <div className="flex items-center gap-2 mb-1">
                                 <Sparkles className="h-4 w-4 text-[#d85c3e]" />
                                 <span className="museum-kicker text-[10px] text-[#f1b19b]">Artefak & Koleksi Bersejarah</span>
                             </div>
-                            <DialogTitle className="text-xl font-black text-white">{selectedMarker?.judul}</DialogTitle>
+                            <DialogTitle className="text-xl font-black text-gray-900 dark:text-white">{selectedMarker?.judul}</DialogTitle>
                         </DialogHeader>
 
                         {selectedMarker?.deskripsi && (
-                            <DialogDescription className="mt-3 text-xs sm:text-sm leading-relaxed text-white/80">
+                            <DialogDescription className="mt-3 text-xs sm:text-sm leading-relaxed text-gray-700 dark:text-white/80">
                                 {selectedMarker.deskripsi}
                             </DialogDescription>
                         )}
@@ -1010,10 +1073,10 @@ export default function PanoramaViewer() {
                                         {isPlayingAudio ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
                                     </Button>
                                     <div>
-                                        <p className="text-xs font-bold text-white">
+                                        <p className="text-xs font-bold text-gray-900 dark:text-white">
                                             {isPlayingAudio ? 'Memutar Narasi Audio...' : 'Dengarkan Narasi Audio'}
                                         </p>
-                                        <p className="text-[10px] text-white/60">Panduan suara otomatis artefak</p>
+                                        <p className="text-[10px] text-gray-600 dark:text-white/60">Panduan suara otomatis artefak</p>
                                     </div>
                                 </div>
                                 {isPlayingAudio && (
@@ -1029,7 +1092,7 @@ export default function PanoramaViewer() {
                         <div className="mt-6 flex justify-end">
                             <Button
                                 onClick={() => setShowInfoDialog(false)}
-                                className="rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white px-5"
+                                className="rounded-full bg-gray-900 text-xs font-semibold text-white px-5 hover:bg-gray-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
                             >
                                 Tutup Info
                             </Button>
@@ -1039,7 +1102,7 @@ export default function PanoramaViewer() {
 
                 {/* Visitor Guide Dialog */}
                 <Dialog open={showVisitorGuide} onOpenChange={setShowVisitorGuide}>
-                    <DialogContent className="border-white/15 bg-[#111417] text-[#f2efe8] z-[9999] flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] rounded-2xl">
+                    <DialogContent className="border-black/10 bg-white text-gray-900 z-[9999] flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] rounded-2xl dark:border-white/15 dark:bg-[#111417] dark:text-[#f2efe8]">
                         <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[#d85c3e] px-6 py-6 text-left">
                             <p className="relative text-[10px] font-bold tracking-widest text-white/80 uppercase">J-DiMS / Orientasi 360°</p>
                             <DialogTitle className="relative mt-1 text-2xl sm:text-3xl font-black text-white">
@@ -1075,7 +1138,7 @@ export default function PanoramaViewer() {
                             ].map((item, index) => {
                                 const GuideIcon = item.icon;
                                 return (
-                                    <div key={item.title} className="flex items-start gap-4 border-b border-white/10 pb-3">
+                                    <div key={item.title} className="flex items-start gap-4 border-b border-black/10 pb-3 dark:border-white/10">
                                         <span className="font-mono text-xs font-bold text-[#f1b19b] pt-1">
                                             #{String(index + 1).padStart(2, '0')}
                                         </span>
@@ -1083,19 +1146,19 @@ export default function PanoramaViewer() {
                                             <GuideIcon className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h4 className="text-sm font-bold text-white">{item.title}</h4>
-                                            <p className="text-xs text-white/70 leading-relaxed">{item.description}</p>
+                                            <h4 className="text-sm font-bold text-gray-900 dark:text-white">{item.title}</h4>
+                                            <p className="text-xs text-gray-600 leading-relaxed dark:text-white/70">{item.description}</p>
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        <div className="flex items-center justify-between p-4 border-t border-white/10 bg-white/5">
+                        <div className="flex items-center justify-between p-4 border-t border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5">
                             <Button
                                 variant="ghost"
                                 onClick={handleCloseVisitorGuide}
-                                className="text-xs text-white/60 hover:text-white"
+                                className="text-xs text-gray-500 hover:text-gray-900 dark:text-white/60 dark:hover:text-white"
                             >
                                 Jangan tampilkan lagi
                             </Button>
@@ -1118,6 +1181,7 @@ export default function PanoramaViewer() {
                     isOpen={showSidebar}
                     onClose={() => setShowSidebar(false)}
                     onOpenGuide={() => setShowVisitorGuide(true)}
+                    onHoverRoom={preloadPanoramaUrl}
                 />
                 {/* Museum Media Gallery Modal */}
                 <GalleryModal

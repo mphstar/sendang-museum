@@ -36,9 +36,10 @@ interface MuseumInfoSidebarProps {
     isOpen: boolean;
     onClose: () => void;
     onOpenGuide?: () => void;
+    onHoverRoom?: (panoramaUrl: string) => void;
 }
 
-export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, onRoomChange, isOpen, onClose, onOpenGuide }: MuseumInfoSidebarProps) {
+export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, onRoomChange, isOpen, onClose, onOpenGuide, onHoverRoom }: MuseumInfoSidebarProps) {
     const [showLocationMap, setShowLocationMap] = useState(false);
     const [showRoomList, setShowRoomList] = useState(false);
     const [showMuseumInfo, setShowMuseumInfo] = useState(false);
@@ -95,11 +96,11 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                 initial={false}
                 animate={{ x: isOpen ? 0 : '-100%' }}
                 transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                className="fixed inset-y-0 left-0 z-[120] flex w-[min(92vw,390px)] flex-col overflow-hidden border-r border-white/15 bg-[#111417] text-[#f2efe8] shadow-2xl"
+                className="fixed inset-y-0 left-0 z-[120] flex w-[min(92vw,390px)] flex-col overflow-hidden border-r border-black/10 bg-white text-gray-900 shadow-2xl dark:border-white/15 dark:bg-[#111417] dark:text-[#f2efe8]"
                 style={{ paddingTop: 'env(safe-area-inset-top)' }}
                 aria-label="Menu eksplorasi museum"
             >
-                <div className="flex items-center justify-between border-b border-white/15 px-5 py-4">
+                <div className="flex items-center justify-between border-b border-black/10 px-5 py-4 dark:border-white/15">
                     <div>
                         <p className="museum-kicker">J-DiMS / field guide</p>
                         <h2 className="mt-1 text-lg font-semibold tracking-tight">Menu Museum</h2>
@@ -108,7 +109,7 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                         variant="ghost"
                         size="icon"
                         onClick={onClose}
-                        className="text-white/70 hover:bg-white/10 hover:text-white"
+                        className="text-gray-500 hover:bg-black/10 hover:text-gray-900 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
                         aria-label="Tutup menu"
                     >
                         <X className="h-5 w-5" />
@@ -123,7 +124,7 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                             <div className="flex items-start justify-between gap-4">
                                 <div>
                                     <p className="text-[10px] font-bold tracking-[0.2em] text-white/70 uppercase">Sedang dijelajahi</p>
-                                    <h3 className="mt-2 text-2xl leading-none font-black tracking-[-0.04em]">
+                                    <h3 className="mt-2 text-2xl leading-none font-black tracking-[-0.04em] text-white">
                                         {activeRuangan?.nama_ruangan || 'Belum dipilih'}
                                     </h3>
                                 </div>
@@ -143,12 +144,12 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                     <div className="mt-7 flex items-center justify-between">
                         <div>
                             <p className="museum-kicker">Index ruang</p>
-                            <p className="mt-1 text-sm text-white/60">Pilih titik kunjungan berikutnya</p>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-white/60">Pilih titik kunjungan berikutnya</p>
                         </div>
-                        <Layers3 className="h-5 w-5 text-white/35" />
+                        <Layers3 className="h-5 w-5 text-gray-400 dark:text-white/35" />
                     </div>
 
-                    <div className="mt-3 divide-y divide-white/10 border-y border-white/15">
+                    <div className="mt-3 divide-y divide-black/10 border-y border-black/15 dark:divide-white/10 dark:border-white/15">
                         {allRuangan.map((room, index) => {
                             const isActive = room.id === activeRuangan?.id;
                             return (
@@ -158,20 +159,24 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                                     onClick={() => {
                                         if (!isActive) onRoomChange(room.id);
                                     }}
-                                    className={`group flex w-full items-center gap-3 py-4 text-left transition-colors ${isActive ? 'text-white' : 'text-white/55 hover:text-white'}`}
+                                    className={`group flex w-full items-center gap-3 py-4 text-left transition-colors ${
+                                        isActive ? 'text-gray-900 dark:text-white' : 'text-gray-600 hover:text-gray-900 dark:text-white/55 dark:hover:text-white'
+                                    }`}
                                     aria-current={isActive ? 'location' : undefined}
                                 >
-                                    <span className={`font-mono text-xs ${isActive ? 'text-[#f1b19b]' : 'text-white/30'}`}>
+                                    <span className={`font-mono text-xs ${isActive ? 'text-[#d85c3e] dark:text-[#f1b19b]' : 'text-gray-400 dark:text-white/30'}`}>
                                         {String(index + 1).padStart(2, '0')}
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-sm font-semibold">{room.nama_ruangan}</span>
-                                        <span className="mt-1 block text-[11px] text-white/35">
+                                        <span className="mt-1 block text-[11px] text-gray-400 dark:text-white/35">
                                             {room.markers?.length || 0} titik interaktif{room.is_main ? ' · titik awal' : ''}
                                         </span>
                                     </span>
                                     <ArrowUpRight
-                                        className={`h-4 w-4 transition-transform ${isActive ? 'text-[#f1b19b]' : 'text-white/20 group-hover:translate-x-0.5 group-hover:-translate-y-0.5'}`}
+                                        className={`h-4 w-4 transition-transform ${
+                                            isActive ? 'text-[#d85c3e] dark:text-[#f1b19b]' : 'text-gray-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 dark:text-white/20'
+                                        }`}
                                     />
                                 </button>
                             );
@@ -181,10 +186,10 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                     <button
                         type="button"
                         onClick={() => setShowUtilities((value) => !value)}
-                        className="mt-6 flex w-full items-center justify-between border-b border-white/15 pb-3 text-left text-sm font-semibold text-white/80 hover:text-white"
+                        className="mt-6 flex w-full items-center justify-between border-b border-black/15 pb-3 text-left text-sm font-semibold text-gray-700 hover:text-gray-900 dark:border-white/15 dark:text-white/80 dark:hover:text-white"
                     >
                         <span className="flex items-center gap-2">
-                            <Headphones className="h-4 w-4 text-[#f1b19b]" /> Alat kunjungan
+                            <Headphones className="h-4 w-4 text-[#d85c3e] dark:text-[#f1b19b]" /> Alat kunjungan
                         </span>
                         <ChevronDown className={`h-4 w-4 transition-transform ${showUtilities ? 'rotate-180' : ''}`} />
                     </button>
@@ -205,11 +210,15 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                                                 type="button"
                                                 onClick={item.onClick}
                                                 disabled={!item.available}
-                                                className={`min-h-24 border p-3 text-left transition-colors ${item.available ? 'border-white/15 bg-white/5 hover:border-[#f1b19b]/60 hover:bg-[#d85c3e]/15' : 'cursor-not-allowed border-white/10 opacity-35'}`}
+                                                className={`min-h-24 border p-3 text-left transition-colors ${
+                                                    item.available
+                                                        ? 'border-black/15 bg-black/5 hover:border-[#d85c3e]/60 hover:bg-[#d85c3e]/10 dark:border-white/15 dark:bg-white/5 dark:hover:border-[#f1b19b]/60 dark:hover:bg-[#d85c3e]/15'
+                                                        : 'cursor-not-allowed border-black/10 opacity-35 dark:border-white/10'
+                                                }`}
                                             >
-                                                <IconComponent className="h-4 w-4 text-[#f1b19b]" />
-                                                <span className="mt-3 block text-xs font-semibold text-white">{item.label}</span>
-                                                <span className="mt-1 block text-[10px] leading-snug text-white/45">{item.description}</span>
+                                                <IconComponent className="h-4 w-4 text-[#d85c3e] dark:text-[#f1b19b]" />
+                                                <span className="mt-3 block text-xs font-semibold text-gray-900 dark:text-white">{item.label}</span>
+                                                <span className="mt-1 block text-[10px] leading-snug text-gray-500 dark:text-white/45">{item.description}</span>
                                             </button>
                                         );
                                     })}
@@ -219,9 +228,9 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                     </AnimatePresence>
                 </div>
 
-                <div className="border-t border-white/15 bg-black/15 px-5 py-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
-                    <p className="text-[10px] tracking-[0.18em] text-white/35 uppercase">Jember Digital Museum System</p>
-                    <p className="mt-1 truncate text-xs text-white/65">Geser, pilih penanda, dan ikuti cerita.</p>
+                <div className="border-t border-black/15 bg-black/5 px-5 py-4 dark:border-white/15 dark:bg-black/15" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+                    <p className="text-[10px] tracking-[0.18em] text-gray-400 uppercase dark:text-white/35">Jember Digital Museum System</p>
+                    <p className="mt-1 truncate text-xs text-gray-500 dark:text-white/65">Geser, pilih penanda, dan ikuti cerita.</p>
                 </div>
             </motion.aside>
 
@@ -230,40 +239,40 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
 
             {/* Museum Info Dialog */}
             <Dialog open={showMuseumInfo} onOpenChange={setShowMuseumInfo}>
-                <DialogContent className="z-[130] max-h-[88dvh] w-[calc(100vw-1rem)] max-w-3xl overflow-y-auto border-white/15 bg-[#111417] p-0 text-[#f2efe8] sm:w-[92vw]">
-                    <DialogHeader className="border-b border-white/15 px-5 py-5 sm:px-7">
+                <DialogContent className="z-[130] max-h-[88dvh] w-[calc(100vw-1rem)] max-w-3xl overflow-y-auto border-black/10 bg-white p-0 text-gray-900 sm:w-[92vw] dark:border-white/15 dark:bg-[#111417] dark:text-[#f2efe8]">
+                    <DialogHeader className="border-b border-black/10 px-5 py-5 sm:px-7 dark:border-white/15">
                         <p className="museum-kicker">Museum dossier</p>
                         <DialogTitle className="mt-1 flex items-center gap-2 text-xl font-black tracking-[-0.03em] sm:text-2xl">
-                            <Building2 className="h-5 w-5 text-[#f1b19b]" />
+                            <Building2 className="h-5 w-5 text-[#d85c3e] dark:text-[#f1b19b]" />
                             Profil Museum
                         </DialogTitle>
                     </DialogHeader>
 
                     <div className="px-5 py-6 sm:px-7">
-                        <div className="grid gap-6 border-b border-white/15 pb-6 sm:grid-cols-[minmax(0,1fr)_12rem]">
+                        <div className="grid gap-6 border-b border-black/15 pb-6 sm:grid-cols-[minmax(0,1fr)_12rem] dark:border-white/15">
                             <div className="min-w-0">
-                                <h3 className="text-2xl leading-tight font-black tracking-[-0.04em] text-white sm:text-3xl">{museum.title}</h3>
-                                {museum.subtitle && <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/60">{museum.subtitle}</p>}
+                                <h3 className="text-2xl leading-tight font-black tracking-[-0.04em] text-gray-900 sm:text-3xl dark:text-white">{museum.title}</h3>
+                                {museum.subtitle && <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-600 dark:text-white/60">{museum.subtitle}</p>}
                                 {museum.address && (
-                                    <p className="mt-4 flex items-start gap-2 text-xs text-white/40">
-                                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#f1b19b]" />
+                                    <p className="mt-4 flex items-start gap-2 text-xs text-gray-500 dark:text-white/40">
+                                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#d85c3e] dark:text-[#f1b19b]" />
                                         {museum.address}
                                     </p>
                                 )}
                             </div>
-                            <div className="border-l border-white/15 pl-5">
-                                <p className="text-[10px] tracking-[0.18em] text-white/35 uppercase">Koleksi digital</p>
-                                <p className="mt-2 text-4xl font-black tracking-[-0.05em] text-[#f1b19b]">
+                            <div className="border-l border-black/15 pl-5 dark:border-white/15">
+                                <p className="text-[10px] tracking-[0.18em] text-gray-400 uppercase dark:text-white/35">Koleksi digital</p>
+                                <p className="mt-2 text-4xl font-black tracking-[-0.05em] text-[#d85c3e] dark:text-[#f1b19b]">
                                     {String(allRuangan.length).padStart(2, '0')}
                                 </p>
-                                <p className="mt-1 text-xs text-white/50">ruang panorama</p>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-white/50">ruang panorama</p>
                             </div>
                         </div>
 
                         {museum.content && (
-                            <div className="border-b border-white/15 py-6 text-sm text-white/70">
+                            <div className="border-b border-black/15 py-6 text-sm text-gray-600 dark:border-white/15 dark:text-white/70">
                                 <p className="museum-kicker mb-3">Tentang koleksi</p>
-                                <div className="prose prose-sm prose-p:leading-relaxed prose-p:text-white/65 prose-strong:text-white max-w-none">
+                                <div className="prose prose-sm prose-p:leading-relaxed prose-p:text-gray-600 prose-strong:text-gray-900 max-w-none dark:prose-p:text-white/65 dark:prose-strong:text-white">
                                     <MDEditor.Markdown
                                         source={museum.content}
                                         rehypePlugins={[rehypeRaw]}
@@ -274,47 +283,47 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                             </div>
                         )}
 
-                        <div className="grid gap-px bg-white/10 py-px sm:grid-cols-2">
+                        <div className="grid gap-px bg-black/10 py-px sm:grid-cols-2 dark:bg-white/10">
                             {museum.opening_hours && (
-                                <div className="flex items-start gap-3 bg-[#171b1f] p-4">
-                                    <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#f1b19b]" />
+                                <div className="flex items-start gap-3 bg-gray-50 p-4 dark:bg-[#171b1f]">
+                                    <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#d85c3e] dark:text-[#f1b19b]" />
                                     <div>
-                                        <span className="block text-[10px] tracking-[0.15em] text-white/35 uppercase">Jam operasional</span>
-                                        <span className="mt-1 block text-sm font-semibold text-white/80">{museum.opening_hours}</span>
+                                        <span className="block text-[10px] tracking-[0.15em] text-gray-400 uppercase dark:text-white/35">Jam operasional</span>
+                                        <span className="mt-1 block text-sm font-semibold text-gray-800 dark:text-white/80">{museum.opening_hours}</span>
                                     </div>
                                 </div>
                             )}
                             {museum.contact_person && (
-                                <div className="flex items-start gap-3 bg-[#171b1f] p-4">
-                                    <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[#f1b19b]" />
+                                <div className="flex items-start gap-3 bg-gray-50 p-4 dark:bg-[#171b1f]">
+                                    <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[#d85c3e] dark:text-[#f1b19b]" />
                                     <div>
-                                        <span className="block text-[10px] tracking-[0.15em] text-white/35 uppercase">Kontak</span>
-                                        <span className="mt-1 block text-sm font-semibold text-white/80">{museum.contact_person}</span>
+                                        <span className="block text-[10px] tracking-[0.15em] text-gray-400 uppercase dark:text-white/35">Kontak</span>
+                                        <span className="mt-1 block text-sm font-semibold text-gray-800 dark:text-white/80">{museum.contact_person}</span>
                                     </div>
                                 </div>
                             )}
                             {museum.distance_from_city_center && (
-                                <div className="flex items-start gap-3 bg-[#171b1f] p-4">
-                                    <Car className="mt-0.5 h-4 w-4 shrink-0 text-[#f1b19b]" />
+                                <div className="flex items-start gap-3 bg-gray-50 p-4 dark:bg-[#171b1f]">
+                                    <Car className="mt-0.5 h-4 w-4 shrink-0 text-[#d85c3e] dark:text-[#f1b19b]" />
                                     <div>
-                                        <span className="block text-[10px] tracking-[0.15em] text-white/35 uppercase">Akses</span>
-                                        <span className="mt-1 block text-sm font-semibold text-white/80">{museum.distance_from_city_center}</span>
+                                        <span className="block text-[10px] tracking-[0.15em] text-gray-400 uppercase dark:text-white/35">Akses</span>
+                                        <span className="mt-1 block text-sm font-semibold text-gray-800 dark:text-white/80">{museum.distance_from_city_center}</span>
                                     </div>
                                 </div>
                             )}
                             {museum.ticket_price && (
-                                <div className="flex items-start gap-3 bg-[#171b1f] p-4">
-                                    <Ticket className="mt-0.5 h-4 w-4 shrink-0 text-[#f1b19b]" />
+                                <div className="flex items-start gap-3 bg-gray-50 p-4 dark:bg-[#171b1f]">
+                                    <Ticket className="mt-0.5 h-4 w-4 shrink-0 text-[#d85c3e] dark:text-[#f1b19b]" />
                                     <div>
-                                        <span className="block text-[10px] tracking-[0.15em] text-white/35 uppercase">Tiket</span>
-                                        <span className="mt-1 block text-sm font-semibold text-white/80">{museum.ticket_price}</span>
+                                        <span className="block text-[10px] tracking-[0.15em] text-gray-400 uppercase dark:text-white/35">Tiket</span>
+                                        <span className="mt-1 block text-sm font-semibold text-gray-800 dark:text-white/80">{museum.ticket_price}</span>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap justify-end gap-2 border-t border-white/15 px-5 py-4 sm:px-7">
+                    <div className="flex flex-wrap justify-end gap-2 border-t border-black/15 px-5 py-4 sm:px-7 dark:border-white/15">
                         {museum.google_maps_link && (
                             <Button
                                 variant="default"
@@ -328,7 +337,7 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                         <Button
                             variant="outline"
                             onClick={() => setShowMuseumInfo(false)}
-                            className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                            className="border-black/20 bg-transparent text-gray-700 hover:bg-black/10 hover:text-gray-900 dark:border-white/20 dark:text-white dark:hover:bg-white/10 dark:hover:text-white"
                         >
                             Tutup
                         </Button>
@@ -343,6 +352,7 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                 allRuangan={allRuangan}
                 activeRuangan={activeRuangan}
                 onRoomChange={onRoomChange}
+                onHoverRoom={onHoverRoom}
             />
 
             {/* Location Map Dialog */}

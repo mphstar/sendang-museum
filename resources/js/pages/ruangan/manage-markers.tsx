@@ -12,6 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, MapPin, Info, Navigation, Volume2, Play, Edit, Trash2, Save, Upload, X } from 'lucide-react';
+import { Viewer } from '@photo-sphere-viewer/core';
+import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
+import { DualFisheyeAdapter } from '@photo-sphere-viewer/dual-fisheye-adapter';
+import '@photo-sphere-viewer/core/index.css';
+import '@photo-sphere-viewer/markers-plugin/index.css';
 import '../../../css/photo-sphere-viewer.css';
 
 export default function ManageMarkers() {
@@ -117,15 +122,16 @@ export default function ManageMarkers() {
 
     const initViewer = async () => {
       try {
-        setPanoramaLoaded(false);
-        
-        // Import Photo Sphere Viewer dynamically
-        const { Viewer } = await import('@photo-sphere-viewer/core');
-        const { MarkersPlugin } = await import('@photo-sphere-viewer/markers-plugin');
+        let resolvedPanoramaUrl = ruangan.panorama_url;
+        try {
+          resolvedPanoramaUrl = new URL(ruangan.panorama_url, window.location.origin).href;
+        } catch {}
 
-        const newViewer = new Viewer({
+        const isLittlePlanet = ruangan?.projection_type === 'little_planet';
+
+        const viewerConfig: any = {
           container: viewerRef.current!,
-          panorama: ruangan.panorama_url,
+          panorama: resolvedPanoramaUrl,
           plugins: [
             [MarkersPlugin, {
               clickEventOnMarker: true,
@@ -137,8 +143,42 @@ export default function ManageMarkers() {
             'move',
             'fullscreen',
           ],
-          loadingTxt: 'Memuat panorama...',
-        });
+          loadingTxt: '',
+          showLoader: false,
+          fisheye: isLittlePlanet ? 2 : 0,
+          defaultPitch: isLittlePlanet ? -Math.PI / 2 : 0,
+          panoData: (image: HTMLImageElement) => {
+            const fullWidth = image.width;
+            const fullHeight = Math.round(image.width / 2);
+            const isStandardEquirect = Math.abs(image.height - fullHeight) < fullHeight * 0.15;
+
+            if (isStandardEquirect) {
+              return {
+                fullWidth: image.width,
+                fullHeight: image.height,
+                croppedWidth: image.width,
+                croppedHeight: image.height,
+                croppedX: 0,
+                croppedY: 0,
+              };
+            }
+
+            return {
+              fullWidth: image.width,
+              fullHeight: fullHeight,
+              croppedWidth: image.width,
+              croppedHeight: Math.min(image.height, fullHeight),
+              croppedX: 0,
+              croppedY: Math.max(0, Math.round((fullHeight - image.height) / 2)),
+            };
+          },
+        };
+
+        if (ruangan?.projection_type === 'dual_fisheye') {
+          viewerConfig.adapter = DualFisheyeAdapter;
+        }
+
+        const newViewer = new Viewer(viewerConfig);
 
         // Wait for viewer to be ready before setting up event listeners
         newViewer.addEventListener('ready', () => {
