@@ -67,9 +67,10 @@ jobs:
           rm -rf node_modules tests storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
 
       # ---------- SAFETY CHECK sebelum rsync ----------
-      # Pastikan DEPLOY_PATH adalah folder Laravel yang benar (ada file artisan).
-      # Kalau tidak, workflow berhenti — mencegah rsync ke folder yang salah.
-      - name: Verify DEPLOY_PATH is a Laravel project
+      # 1) DEPLOY_PATH harus ada
+      # 2) Boleh kosong (first deploy) ATAU berisi project Laravel (ada artisan)
+      # 3) Kalau berisi file tapi bukan Laravel → stop (mencegah rsync ke folder yang salah)
+      - name: Verify DEPLOY_PATH is safe
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -78,8 +79,13 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd "${{ secrets.DEPLOY_PATH }}" || { echo "DEPLOY_PATH tidak ada"; exit 1; }
-            [ -f artisan ] || { echo "artisan tidak ditemukan — DEPLOY_PATH salah/tidak aman"; exit 1; }
-            echo "DEPLOY_PATH aman: $(pwd)"
+            if [ -f artisan ]; then
+              echo "DEPLOY_PATH aman (project Laravel): $(pwd)"
+            elif [ -z "$(ls -A .)" ]; then
+              echo "DEPLOY_PATH kosong (first deploy): $(pwd)"
+            else
+              echo "DEPLOY_PATH berisi file tapi artisan tidak ditemukan — bukan folder yang benar, STOP"; exit 1;
+            fi
 
       # ---------- DEPLOY via rsync over SSH ----------
       # burnett01/rsync-deployments tidak mendukung password, jadi pakai ssh key + rsync langsung
