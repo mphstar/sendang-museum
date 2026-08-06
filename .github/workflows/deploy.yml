@@ -1,21 +1,25 @@
-name: Deploy via SSH
+name: Build & Publish to deploy branch
 
-# Menjalankan deploy otomatis setiap push ke main.
-# Build (composer + npm) dijalankan di runner GitHub, hasilnya dikirim ke server
-# via rsync over SSH (hanya delta = cepat). Server TIDAK perlu terminal/npm/composer.
+# Setiap push ke main:
+# 1. build frontend (npm ci + npm run build) di runner GitHub
+# 2. hasil (source + public/build) dipush otomatis ke branch "deploy"
+# Hostinger Git menarik dari branch "deploy". Composer dijalankan Hostinger sendiri.
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch: # boleh dipicu manual dari tab Actions
+  workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: publish-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
-  deploy:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -23,31 +27,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      # ---------- BACKEND (composer) ----------
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2' # samakan dengan versi PHP di server
-          extensions: mbstring, intl, pdo, pdo_sqlite, fileinfo, bcmath, gd, dom, zip
-          coverage: none
-
-      - name: Get composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-
-
-      - name: Install composer dependencies (production)
-        run: |
-          composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-          composer dump-autoload --no-dev --classmap-authoritative
-
-      # ---------- FRONTEND (npm) ----------
+      # ---------- FRONTEND BUILD ----------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -60,64 +40,33 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      # ---------- BERSIHKAN FILE YANG TIDAK BOLEH TER-DEPLOY ----------
-      - name: Remove unwanted files before deploy
+      # ---------- PERSIAPKAN ISI BRANCH DEPLOY ----------
+      # Salin source + public/build, buang hal yang tidak perlu untuk server.
+      - name: Stage deployment files
         run: |
-          rm -f .env .env.backup .env.production
-          rm -rf node_modules tests storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
+          mkdir -p /tmp/deploy
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='tests/' \
+            --exclude='.env' \
+            --exclude='.env.backup' \
+            --exclude='.env.production' \
+            --exclude='storage/**' \
+            --exclude='public/storage/' \
+            ./ /tmp/deploy/
+          # Pastikan asset build ikut
+          test -d /tmp/deploy/public/build && echo "public/build siap" || { echo "public/build tidak ditemukan"; exit 1; }
 
-      # ---------- SAFETY CHECK sebelum rsync ----------
-      # 1) DEPLOY_PATH harus ada
-      # 2) Boleh kosong (first deploy) ATAU berisi project Laravel (ada artisan)
-      # 3) Kalau berisi file tapi bukan Laravel → stop (mencegah rsync ke folder yang salah)
-      - name: Verify DEPLOY_PATH is safe
-        uses: appleboy/ssh-action@v1
+      # ---------- PUSH KE BRANCH DEPLOY ----------
+      - name: Publish to deploy branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            cd "${{ secrets.DEPLOY_PATH }}" || { echo "DEPLOY_PATH tidak ada"; exit 1; }
-            if [ -f artisan ]; then
-              echo "DEPLOY_PATH aman (project Laravel): $(pwd)"
-            elif [ -z "$(ls -A .)" ]; then
-              echo "DEPLOY_PATH kosong (first deploy): $(pwd)"
-            else
-              echo "DEPLOY_PATH berisi file tapi artisan tidak ditemukan — bukan folder yang benar, STOP"; exit 1;
-            fi
-
-      # ---------- DEPLOY via rsync over SSH ----------
-      # burnett01/rsync-deployments tidak mendukung password, jadi pakai ssh key + rsync langsung
-      - name: Rsync deploy to server
-        env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-        run: |
-          echo "$SSH_KEY" > /tmp/id_deploy
-          chmod 600 /tmp/id_deploy
-          rsync -avz --delete --mkpath \
-            -e "ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
-            --exclude=.env \
-            --exclude=storage/** \
-            --exclude=public/storage \
-            ./ ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
-
-      # ---------- POST-DEPLOY (artisan via SSH) ----------
-      - name: Run artisan maintenance/cache commands on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          command_timeout: 10m
-          script: |
-            set -e
-            cd ${{ secrets.DEPLOY_PATH }}
-            php artisan down --retry=5 || true
-            php artisan storage:link || true
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan up
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: /tmp/deploy
+          publish_branch: deploy
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'deploy: build ${{ github.sha }}'
