@@ -1,9 +1,8 @@
-name: Deploy to SSH Server
+name: Deploy via FTP
 
 # Menjalankan deploy otomatis setiap push ke main.
-# Build dilakukan di runner GitHub (mendukung npm run build + composer install),
-# hasilnya dikirim ke server via rsync over SSH, lalu artisan dijalankan via SSH.
-# Server TIDAK perlu terminal/npm/composer untuk proses ini.
+# Build (composer + npm) dijalankan di runner GitHub, hasilnya (vendor/ + public/build/)
+# di-upload ke hosting via FTP. Server TIDAK perlu terminal/npm/composer.
 
 on:
   push:
@@ -61,61 +60,27 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      # ---------- SERVER-STATE CHECK ----------
-      # Pastikan env/production tidak pernah ikut ter-deploy
-      - name: Remove unwanted files before deploy
+      # ---------- BERSIHKAN FILE YANG TIDAK BOLEH DI-UPLOAD ----------
+      - name: Remove unwanted files before upload
         run: |
           rm -f .env .env.backup .env.production
-          rm -rf storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
-          rm -rf node_modules tests
+          rm -rf node_modules tests storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
+          # Beri izin eksekusi pada binary artisan/composer agar tetap berfungsi
+          chmod +x artisan
 
-      # ---------- SAFETY CHECK sebelum rsync ----------
-      # Pastikan DEPLOY_PATH adalah folder Laravel yang benar (ada file artisan).
-      # Kalau tidak, workflow berhenti — mencegah rsync ke folder yang salah.
-      - name: Verify DEPLOY_PATH is a Laravel project
-        uses: appleboy/ssh-action@v1
+      # ---------- UPLOAD VIA FTP ----------
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            cd "${{ secrets.DEPLOY_PATH }}" || { echo "DEPLOY_PATH tidak ada"; exit 1; }
-            [ -f artisan ] || { echo "artisan tidak ditemukan — DEPLOY_PATH salah/tidak aman"; exit 1; }
-            echo "DEPLOY_PATH aman: $(pwd)"
-
-      # ---------- DEPLOY via rsync over SSH (password auth) ----------
-      # burnett01/rsync-deployments tidak mendukung password, jadi pakai sshpass langsung
-      - name: Install sshpass
-        run: sudo apt-get update && sudo apt-get install -y sshpass
-
-      - name: Rsync deploy to server
-        env:
-          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
-        run: |
-          sshpass -p "$SSH_PASSWORD" rsync -avz \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
-            --exclude=.env \
-            --exclude=storage/** \
-            --exclude=public/storage \
-            ./ ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
-
-      # ---------- POST-DEPLOY (artisan via SSH) ----------
-      - name: Run artisan maintenance/cache commands on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
-          command_timeout: 10m
-          script: |
-            set -e
-            cd ${{ secrets.DEPLOY_PATH }}
-            php artisan down --retry=5 || true
-            php artisan storage:link || true
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan up
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: ${{ secrets.FTP_PROTOCOL }} # ftp | ftps | sftp
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          exclude: |
+            **/.git*/**
+            **/node_modules/**
+            .env*
+            storage/**
+            public/storage/**
