@@ -73,24 +73,20 @@ jobs:
 
       # ---------- SAFETY CHECK sebelum rsync ----------
       # DEPLOY_PATH harus ada; boleh kosong (first deploy) ATAU berisi project Laravel.
-      # Kalau berisi file tapi bukan Laravel → stop (cegah rsync ke folder yang salah).
+      # Pakai ssh bawaan sistem (terbukti berhasil, sama seperti rsync).
       - name: Verify DEPLOY_PATH is safe
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            DEPLOY_PATH="/home/u133764157/domains/sendang.j-dims.com/public_html"
-            cd "$DEPLOY_PATH" || { echo "DEPLOY_PATH tidak ada"; exit 1; }
-            if [ -f artisan ]; then
-              echo "DEPLOY_PATH aman (project Laravel): $(pwd)"
-            elif [ -z "$(ls -A .)" ]; then
-              echo "DEPLOY_PATH kosong (first deploy): $(pwd)"
-            else
-              echo "DEPLOY_PATH berisi file tapi artisan tidak ditemukan — bukan folder yang benar, STOP"; exit 1;
-            fi
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > /tmp/id_deploy
+          chmod 600 /tmp/id_deploy
+          ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
+            'cd /home/u133764157/domains/sendang.j-dims.com/public_html || { echo "DEPLOY_PATH tidak ada"; exit 1; }
+             if [ -f artisan ]; then echo "DEPLOY_PATH aman (project Laravel): $(pwd)";
+             elif [ -z "$(ls -A .)" ]; then echo "DEPLOY_PATH kosong (first deploy): $(pwd)";
+             else echo "DEPLOY_PATH berisi file tapi artisan tidak ditemukan — STOP"; exit 1; fi'
 
       # ---------- DEPLOY via rsync over SSH ----------
       - name: Rsync deploy to server
@@ -108,23 +104,20 @@ jobs:
 
       # ---------- POST-DEPLOY (artisan via SSH) ----------
       - name: Run artisan maintenance/cache commands on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          command_timeout: 10m
-          script: |
-            set -e
-            cd /home/u133764157/domains/sendang.j-dims.com/public_html
-            # Pastikan struktur folder storage ada (first deploy / storage tidak ikut rsync)
-            mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
-            chmod -R 775 storage bootstrap/cache
-            php artisan down --retry=5 || true
-            php artisan storage:link || true
-            php artisan migrate --force || true
-            php artisan config:cache || true
-            php artisan route:cache || true
-            php artisan view:cache || true
-            php artisan up || true
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
+            'set -e
+             cd /home/u133764157/domains/sendang.j-dims.com/public_html
+             mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+             chmod -R 775 storage bootstrap/cache
+             php artisan down --retry=5 || true
+             php artisan storage:link || true
+             php artisan migrate --force || true
+             php artisan config:cache || true
+             php artisan route:cache || true
+             php artisan view:cache || true
+             php artisan up || true'
