@@ -1,9 +1,9 @@
-name: Build & Publish to deploy branch
+name: Deploy via SSH
 
 # Setiap push ke main:
-# 1. build frontend (npm ci + npm run build) di runner GitHub
-# 2. hasil (source + public/build) dipush otomatis ke branch "deploy"
-# Hostinger Git menarik dari branch "deploy". Composer dijalankan Hostinger sendiri.
+# 1. composer install + npm run build dijalankan di runner GitHub
+# 2. hasil (source + vendor + public/build) dikirim ke server via rsync over SSH
+# Server tidak perlu terminal/npm/composer. Hanya butuh SSH key.
 
 on:
   push:
@@ -12,14 +12,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-and-publish:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -27,7 +27,31 @@ jobs:
         with:
           fetch-depth: 1
 
-      # ---------- FRONTEND BUILD ----------
+      # ---------- BACKEND (composer) ----------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, pdo, pdo_sqlite, fileinfo, bcmath, gd, dom, zip
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install composer dependencies (production)
+        run: |
+          composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+          composer dump-autoload --no-dev --classmap-authoritative
+
+      # ---------- FRONTEND (npm) ----------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -40,34 +64,64 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      # ---------- PERSIAPKAN ISI BRANCH DEPLOY ----------
-      # Salin source + public/build, buang hal yang tidak perlu untuk server.
-      - name: Stage deployment files
+      # ---------- BERSIHKAN FILE YANG TIDAK BOLEH TER-DEPLOY ----------
+      - name: Remove unwanted files before deploy
         run: |
-          mkdir -p /tmp/deploy
-          rsync -a \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='node_modules/' \
-            --exclude='tests/' \
-            --exclude='.env' \
-            --exclude='.env.backup' \
-            --exclude='.env.production' \
-            --exclude='storage/**' \
-            --exclude='public/storage/' \
-            ./ /tmp/deploy/
-          # Hapus .gitignore agar build (public/build) tidak dikecualikan saat commit
-          rm -f /tmp/deploy/.gitignore /tmp/deploy/.gitattributes
-          # Pastikan asset build ikut
-          test -d /tmp/deploy/public/build && echo "public/build siap" || { echo "public/build tidak ditemukan"; exit 1; }
+          rm -f .env .env.backup .env.production
+          rm -rf node_modules tests
+          rm -rf storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
 
-      # ---------- PUSH KE BRANCH DEPLOY ----------
-      - name: Publish to deploy branch
-        uses: peaceiris/actions-gh-pages@v4
+      # ---------- SAFETY CHECK sebelum rsync ----------
+      # DEPLOY_PATH harus ada; boleh kosong (first deploy) ATAU berisi project Laravel.
+      # Kalau berisi file tapi bukan Laravel → stop (cegah rsync ke folder yang salah).
+      - name: Verify DEPLOY_PATH is safe
+        uses: appleboy/ssh-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: /tmp/deploy
-          publish_branch: deploy
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'deploy: build ${{ github.sha }}'
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            DEPLOY_PATH="/home/u133764157/domains/sendang.j-dims.com/public_html"
+            cd "$DEPLOY_PATH" || { echo "DEPLOY_PATH tidak ada"; exit 1; }
+            if [ -f artisan ]; then
+              echo "DEPLOY_PATH aman (project Laravel): $(pwd)"
+            elif [ -z "$(ls -A .)" ]; then
+              echo "DEPLOY_PATH kosong (first deploy): $(pwd)"
+            else
+              echo "DEPLOY_PATH berisi file tapi artisan tidak ditemukan — bukan folder yang benar, STOP"; exit 1;
+            fi
+
+      # ---------- DEPLOY via rsync over SSH ----------
+      - name: Rsync deploy to server
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > /tmp/id_deploy
+          chmod 600 /tmp/id_deploy
+          rsync -avz --delete --mkpath \
+            -e "ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
+            --exclude=.env \
+            --exclude=storage/** \
+            --exclude=public/storage \
+            ./ u133764157@${{ secrets.SSH_HOST }}:/home/u133764157/domains/sendang.j-dims.com/public_html/
+
+      # ---------- POST-DEPLOY (artisan via SSH) ----------
+      - name: Run artisan maintenance/cache commands on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /home/u133764157/domains/sendang.j-dims.com/public_html
+            php artisan down --retry=5 || true
+            php artisan storage:link || true
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan up
