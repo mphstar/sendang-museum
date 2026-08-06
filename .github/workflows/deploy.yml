@@ -78,7 +78,7 @@ jobs:
         env:
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         run: |
-          sshpass -p "$SSH_PASSWORD" rsync -avz --delete \
+          sshpass -p "$SSH_PASSWORD" rsync -avz --delete --mkpath \
             -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
             --exclude=.env \
             --exclude=storage/** \
