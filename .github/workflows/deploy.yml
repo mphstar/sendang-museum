@@ -1,0 +1,102 @@
+name: Deploy to SSH Server
+
+# Menjalankan deploy otomatis setiap push ke main.
+# Build dilakukan di runner GitHub (mendukung npm run build + composer install),
+# hasilnya dikirim ke server via rsync over SSH, lalu artisan dijalankan via SSH.
+# Server TIDAK perlu terminal/npm/composer untuk proses ini.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # boleh dipicu manual dari tab Actions
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ---------- BACKEND (composer) ----------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2' # samakan dengan versi PHP di server
+          extensions: mbstring, intl, pdo, pdo_sqlite, fileinfo, bcmath, gd, dom, zip
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install composer dependencies (production)
+        run: |
+          composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+          composer dump-autoload --no-dev --classmap-authoritative
+
+      # ---------- FRONTEND (npm) ----------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      # ---------- SERVER-STATE CHECK ----------
+      # Pastikan env/production tidak pernah ikut ter-deploy
+      - name: Remove unwanted files before deploy
+        run: |
+          rm -f .env .env.backup .env.production
+          rm -rf storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
+          rm -rf node_modules tests
+
+      # ---------- DEPLOY via rsync over SSH ----------
+      - name: Rsync deploy to server
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avz --delete --exclude=.env --exclude=storage/** --exclude=public/storage
+          path: ./
+          remote_path: ${{ secrets.DEPLOY_PATH }}
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USERNAME }}
+          remote_password: ${{ secrets.SSH_PASSWORD }}
+          remote_port: ${{ secrets.SSH_PORT }}
+
+      # ---------- POST-DEPLOY (artisan via SSH) ----------
+      - name: Run artisan maintenance/cache commands on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          command_timeout: 10m
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+            php artisan down --retry=5 || true
+            php artisan storage:link || true
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan up
