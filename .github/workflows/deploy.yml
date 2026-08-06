@@ -69,6 +69,21 @@ jobs:
           rm -rf storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
           rm -rf node_modules tests
 
+      # ---------- SAFETY CHECK sebelum rsync ----------
+      # Pastikan DEPLOY_PATH adalah folder Laravel yang benar (ada file artisan).
+      # Kalau tidak, workflow berhenti — mencegah rsync ke folder yang salah.
+      - name: Verify DEPLOY_PATH is a Laravel project
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd "${{ secrets.DEPLOY_PATH }}" || { echo "DEPLOY_PATH tidak ada"; exit 1; }
+            [ -f artisan ] || { echo "artisan tidak ditemukan — DEPLOY_PATH salah/tidak aman"; exit 1; }
+            echo "DEPLOY_PATH aman: $(pwd)"
+
       # ---------- DEPLOY via rsync over SSH (password auth) ----------
       # burnett01/rsync-deployments tidak mendukung password, jadi pakai sshpass langsung
       - name: Install sshpass
@@ -78,7 +93,7 @@ jobs:
         env:
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         run: |
-          sshpass -p "$SSH_PASSWORD" rsync -avz --delete --mkpath \
+          sshpass -p "$SSH_PASSWORD" rsync -avz \
             -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
             --exclude=.env \
             --exclude=storage/** \
