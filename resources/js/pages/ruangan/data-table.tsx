@@ -112,8 +112,12 @@ export function DataTable<TData, TValue>({ columns, data, museum }: DataTablePro
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
+                                    const isActions = header.column.id === 'actions';
                                     return (
-                                        <TableHead key={header.id}>
+                                        <TableHead
+                                            key={header.id}
+                                            className={isActions ? 'sticky right-0 z-20 bg-background border-l border-border shadow-[-4px_0_12px_rgba(0,0,0,0.05)]' : ''}
+                                        >
                                             {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                                         </TableHead>
                                     );
@@ -125,9 +129,17 @@ export function DataTable<TData, TValue>({ columns, data, museum }: DataTablePro
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
                                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                                    ))}
+                                    {row.getVisibleCells().map((cell) => {
+                                        const isActions = cell.column.id === 'actions';
+                                        return (
+                                            <TableCell
+                                                key={cell.id}
+                                                className={isActions ? 'sticky right-0 z-10 bg-background border-l border-border shadow-[-4px_0_12px_rgba(0,0,0,0.05)]' : ''}
+                                            >
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        );
+                                    })}
                                 </TableRow>
                             ))
                         ) : (

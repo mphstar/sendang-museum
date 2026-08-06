@@ -14,27 +14,31 @@ export function GlobalAppearanceToggle() {
     const ActiveIcon = options.find((option) => option.value === appearance)?.icon ?? Monitor;
 
     return (
-        <div className="fixed right-4 bottom-4 z-[10000] print:hidden">
+        <div className="fixed right-5 bottom-32 z-[10000] print:hidden">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button
                         variant="outline"
                         size="icon"
-                        className="border-border/80 bg-background/90 hover:bg-accent h-10 w-10 rounded-full shadow-lg backdrop-blur-md"
+                        className="h-11 w-11 rounded-full border border-black/20 dark:border-white/30 bg-white/80 dark:bg-black/60 text-gray-900 dark:text-white shadow-xl backdrop-blur-md transition hover:bg-gray-100 dark:hover:bg-white/20 active:scale-95 cursor-pointer"
                         aria-label="Ubah tema tampilan"
                         title="Tema tampilan"
                     >
-                        <ActiveIcon className="h-4 w-4" />
+                        <ActiveIcon className="h-5 w-5 text-[#d85c3e] dark:text-[#f1b19b]" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" side="top" className="z-[10001] mb-1 w-44">
+                <DropdownMenuContent align="end" side="top" className="z-[10001] mb-2 w-44 border-black/10 dark:border-white/15 bg-white dark:bg-[#111417] text-gray-900 dark:text-white shadow-2xl">
                     {options.map(({ value, label, icon: Icon }) => (
-                        <DropdownMenuItem key={value} onClick={() => updateAppearance(value)} className="justify-between">
-                            <span className="flex items-center gap-2">
-                                <Icon className="h-4 w-4" />
+                        <DropdownMenuItem
+                            key={value}
+                            onClick={() => updateAppearance(value)}
+                            className="justify-between focus:bg-gray-100 dark:focus:bg-white/10 focus:text-gray-900 dark:focus:text-white cursor-pointer"
+                        >
+                            <span className="flex items-center gap-2 text-xs font-medium">
+                                <Icon className="h-4 w-4 text-[#d85c3e] dark:text-[#f1b19b]" />
                                 {label}
                             </span>
-                            {appearance === value && <Check className="h-4 w-4" />}
+                            {appearance === value && <Check className="h-4 w-4 text-[#d85c3e]" />}
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>

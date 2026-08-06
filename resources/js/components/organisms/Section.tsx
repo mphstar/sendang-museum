@@ -1,4 +1,5 @@
 import { motion, useInView } from 'framer-motion';
+import { MapPin, Sparkles, Tag } from 'lucide-react';
 import React, { forwardRef, useEffect, useRef, useState } from 'react';
 import { FancyButton } from '../atoms/FancyButton';
 import Flip from '../FlipText';
@@ -7,10 +8,19 @@ export type SectionData = {
     id: string;
     title: string;
     navLabel?: string;
+    label?: string;
     subtitle?: string;
     bg?: string;
     content?: React.ReactNode;
     ctaHref?: string;
+    ctaLabel?: string;
+    onOpenDetail?: () => void;
+    onOpenMap?: () => void;
+    openingHours?: string;
+    ticketPrice?: string;
+    distanceFromCityCenter?: string;
+    roomCount?: number;
+    rooms?: { id: number; nama_ruangan: string; is_main: boolean }[];
     overlays?: {
         url: string;
         position_horizontal: 'left' | 'center' | 'right' | null;
@@ -20,16 +30,33 @@ export type SectionData = {
     align?: 'left' | 'right';
 };
 
+// Calm luxury easing curve
+const CALM_EASE = [0.16, 1, 0.3, 1] as const;
+
 export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: number }>(({ data, index }, ref) => {
-    const { bg, title, subtitle, content, ctaHref, overlays, align = 'left' } = data;
+    const {
+        bg,
+        title,
+        subtitle,
+        content,
+        ctaHref,
+        ctaLabel,
+        onOpenDetail,
+        onOpenMap,
+        label,
+        overlays,
+        align = 'left',
+    } = data;
+
     const sectionRef = useRef<HTMLDivElement | null>(null);
     const overlayRef = sectionRef;
     const pos = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
     const scrollProg = useRef(0);
     const lastTime = useRef<number | null>(null);
-    const inView = useInView(sectionRef, { amount: 0.55 });
+    const inView = useInView(sectionRef, { amount: 0.4 });
     const prev = useRef(false);
     const [cycle, setCycle] = useState(0);
+
     useEffect(() => {
         const el = sectionRef.current;
         if (!el) return;
@@ -56,6 +83,7 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
         calc();
         return () => container.removeEventListener('scroll', onScroll);
     }, []);
+
     useEffect(() => {
         let raf: number | null = null;
         const lerp = (a: number, b: number, n: number) => a + (b - a) * n;
@@ -89,18 +117,21 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
             if (raf) cancelAnimationFrame(raf);
         };
     }, []);
+
     useEffect(() => {
         if (inView && !prev.current) {
             setCycle((c) => c + 1);
         }
         prev.current = inView;
     }, [inView]);
+
     const handleMove = (e: React.MouseEvent) => {
         if (!window.matchMedia('(pointer:fine)').matches) return;
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         pos.current.tx = e.clientX - rect.left;
         pos.current.ty = e.clientY - rect.top;
     };
+
     return (
         <section
             id={data.id}
@@ -110,42 +141,46 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
                 else if (ref && 'current' in ref) (ref as any).current = el;
             }}
             onMouseMove={handleMove}
-            className={`relative isolate flex h-screen w-screen snap-start items-end bg-[#111417] pb-20 ${align === 'right' ? 'justify-end pr-6 md:pr-16' : 'justify-start pl-6 md:pl-16'}`}
+            className="relative isolate flex h-screen h-[100dvh] w-screen max-w-full overflow-hidden snap-start items-center justify-center bg-[#0b0d0f] text-[#f2efe8] pt-24 sm:pt-28 pb-10 px-6 sm:px-12 md:px-16 lg:px-24"
         >
-            {/* Black background layer to prevent unwanted images showing through */}
-            <div className="absolute inset-0 -z-20 bg-black" />
+            {/* Base solid background layer */}
+            <div className="absolute inset-0 -z-20 bg-[#0b0d0f]" />
+
             {bg && (
                 <motion.div
-                    className="absolute inset-0 -z-10 bg-black bg-cover bg-center bg-no-repeat"
+                    className="absolute inset-0 -z-10 bg-[#0b0d0f] bg-cover bg-center bg-no-repeat overflow-hidden"
                     style={{ backgroundImage: `url(${bg})` }}
-                    initial={{ scale: 1.05 }}
-                    whileInView={{ scale: 1 }}
-                    exit={{ scale: 1.05 }}
+                    initial={{ scale: 1.05, opacity: 0.85 }}
+                    whileInView={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 1.05, opacity: 0.85 }}
                     viewport={{ amount: 0.3, once: false }}
                     transition={{
-                        duration: 1.2,
-                        ease: 'easeOut',
+                        duration: 2.2,
+                        ease: CALM_EASE,
                     }}
                     role="img"
                     aria-label={title}
                 />
             )}
-            <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(17,20,23,0.2)_0%,rgba(17,20,23,0.2)_38%,rgba(17,20,23,0.92)_100%)]" />
+
+            {/* Cinematic Dark Vignette Mask */}
+            <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(11,13,15,0.45)_0%,rgba(11,13,15,0.65)_50%,rgba(11,13,15,0.98)_100%)]" />
+
+            {/* 3D Overlays */}
             {overlays && overlays.length > 0 && (
                 <motion.div
                     key={cycle}
-                    className="overlay-container pointer-events-none absolute inset-0 -z-[8] select-none"
-                    initial={{ scale: 1.08 }}
+                    className="overlay-container pointer-events-none absolute inset-0 -z-[8] select-none overflow-hidden"
+                    initial={{ scale: 1.05 }}
                     whileInView={{ scale: 1 }}
-                    exit={{ scale: 1.08 }}
+                    exit={{ scale: 1.05 }}
                     viewport={{ amount: 0.3, once: false }}
                     transition={{
-                        duration: 1.2,
-                        ease: 'easeOut',
+                        duration: 1.8,
+                        ease: CALM_EASE,
                     }}
                 >
                     {overlays.map((overlay, i) => {
-                        // Placement logic using position_horizontal and position_vertical
                         let stylePos: React.CSSProperties = {};
                         if (overlay.position_horizontal && overlay.position_vertical) {
                             if (overlay.position_horizontal === 'center' && overlay.position_vertical === 'center') {
@@ -183,34 +218,121 @@ export const Section = forwardRef<HTMLDivElement, { data: SectionData; index: nu
                     })}
                 </motion.div>
             )}
+
+            {/* Watermark Number Entry Animation */}
             <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ amount: 0.6, once: false }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-                className={`w-full max-w-5xl ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}
+                aria-hidden="true"
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ amount: 0.3, once: false }}
+                transition={{ duration: 2.0, delay: 0.1, ease: CALM_EASE }}
+                className={`pointer-events-none absolute select-none font-black text-white/[0.05] text-[18rem] sm:text-[24rem] md:text-[28rem] leading-none tracking-tighter ${
+                    align === 'right' ? 'left-6 sm:left-12 top-1/2 -translate-y-1/2' : 'right-6 sm:right-12 top-1/2 -translate-y-1/2'
+                }`}
             >
-                <div className="mb-5 flex items-center gap-3">
-                    <span className="museum-kicker">{String(index + 1).padStart(2, '0')} / destination</span>
-                    <span className="h-px w-16 bg-[#f1b19b]/70" />
-                </div>
-                {title
-                    .trim()
-                    .split(/\s+/)
-                    .map((w) => (
-                        <Flip key={w}>{w}</Flip>
-                    ))}
-                {subtitle && <p className="mt-5 max-w-xl text-base leading-relaxed font-light tracking-wide text-white/85 md:text-xl">{subtitle}</p>}
-                {content && <div className={`mt-8 w-fit ${align === 'right' ? 'text-right' : 'text-left'}`}>{content}</div>}
-                {ctaHref && (
-                    <div className={`mt-10 ${align === 'right' ? 'flex justify-end' : 'flex justify-start'}`}>
-                        <FancyButton href={ctaHref}>Lihat</FancyButton>
-                    </div>
-                )}
+                {String(index + 1).padStart(2, '0')}
             </motion.div>
-            <div className="absolute right-6 bottom-6 hidden text-right text-[10px] tracking-[0.2em] text-white/55 uppercase sm:block">
-                Jember / Indonesia
+
+            {/* Main Centered Content Container */}
+            <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col justify-center my-auto">
+                <div
+                    className={`w-full max-w-2xl flex flex-col ${
+                        align === 'right' ? 'ml-auto text-right items-end' : 'mr-auto text-left items-start'
+                    }`}
+                >
+                    {/* Top Badges Row */}
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ amount: 0.4, once: false }}
+                        transition={{ duration: 1.0, delay: 0.1, ease: CALM_EASE }}
+                        className={`mb-3 sm:mb-4 flex flex-wrap items-center gap-2 ${align === 'right' ? 'justify-end' : 'justify-start'}`}
+                    >
+                        <span className="glass-pill flex items-center gap-1.5 rounded-full border border-[#d85c3e]/40 bg-black/50 px-3.5 py-1.5 font-mono text-[10px] sm:text-[11px] font-bold text-[#f1b19b] shadow-sm">
+                            <Sparkles className="h-3.5 w-3.5 text-[#d85c3e]" />
+                            #{String(index + 1).padStart(2, '0')} DESTINASI EXHIBITION
+                        </span>
+
+                        {label && (
+                            <span className="glass-pill flex items-center gap-1.5 rounded-full border border-white/20 bg-black/50 px-3.5 py-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white shadow-sm">
+                                <Tag className="h-3.5 w-3.5 text-[#d85c3e]" />
+                                {label}
+                            </span>
+                        )}
+                    </motion.div>
+
+                    {/* Headline Title */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+                        whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        viewport={{ amount: 0.4, once: false }}
+                        transition={{ duration: 1.2, delay: 0.25, ease: CALM_EASE }}
+                        className="mb-3 sm:mb-4 leading-none max-w-full text-white"
+                    >
+                        {title
+                            .trim()
+                            .split(/\s+/)
+                            .map((w) => (
+                                <Flip key={w}>{w}</Flip>
+                            ))}
+                    </motion.div>
+
+                    {/* Subtitle */}
+                    {subtitle && (
+                        <motion.p
+                            initial={{ opacity: 0, y: 14 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ amount: 0.4, once: false }}
+                            transition={{ duration: 1.2, delay: 0.4, ease: CALM_EASE }}
+                            className="mb-3 sm:mb-4 text-base sm:text-lg md:text-xl leading-relaxed font-semibold sm:font-light tracking-wide text-white/90 max-w-xl line-clamp-2"
+                        >
+                            {subtitle}
+                        </motion.p>
+                    )}
+
+                    {/* Markdown Description */}
+                    {content && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ amount: 0.4, once: false }}
+                            transition={{ duration: 1.2, delay: 0.55, ease: CALM_EASE }}
+                            className={`mb-6 w-full text-xs sm:text-sm leading-relaxed text-white/80 max-w-xl line-clamp-3 sm:line-clamp-4 ${
+                                align === 'right' ? 'text-right ml-auto' : 'text-left mr-auto'
+                            }`}
+                        >
+                            {content}
+                        </motion.div>
+                    )}
+
+                    {/* Action Buttons Row */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 14 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ amount: 0.4, once: false }}
+                        transition={{ duration: 1.2, delay: 0.7, ease: CALM_EASE }}
+                        className={`flex flex-wrap items-center gap-3 ${align === 'right' ? 'justify-end' : 'justify-start'}`}
+                    >
+                        {onOpenDetail ? (
+                            <FancyButton onClick={onOpenDetail}>{ctaLabel || 'Mulai Jelajah'}</FancyButton>
+                        ) : ctaHref ? (
+                            <FancyButton href={ctaHref}>{ctaLabel || 'Mulai Jelajah'}</FancyButton>
+                        ) : null}
+
+                        {onOpenMap && (
+                            <button
+                                onClick={onOpenMap}
+                                className="glass-pill flex items-center gap-2 rounded-none border border-white/70 bg-black/40 px-5 py-3 text-xs sm:text-sm font-bold tracking-wide text-white transition hover:bg-white hover:text-black cursor-pointer shadow-md"
+                            >
+                                <MapPin className="h-4 w-4 text-[#f1b19b]" />
+                                <span>Lihat Peta Lokasi</span>
+                            </button>
+                        )}
+                    </motion.div>
+                </div>
             </div>
         </section>
     );
 });
+
+Section.displayName = 'Section';

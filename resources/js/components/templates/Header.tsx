@@ -15,16 +15,16 @@ interface HeaderProps {
 
 export function Header({ active, onJump, sections, brand, subtitle, backHref, actions }: HeaderProps) {
     const label = brand || 'Education';
+
     return (
-        <div className="fixed top-0 left-0 z-[60] w-full border-b border-white/15 bg-[#111417]/30 px-4 py-4 backdrop-blur-md md:px-8">
+        <header className="glass-panel fixed top-0 left-0 z-[60] w-full border-b border-black/10 dark:border-white/10 bg-white/85 dark:bg-[#0b0d0f]/80 backdrop-blur-md px-4 py-3 md:px-8 transition-colors duration-300 shadow-sm">
             {/* Mobile layout */}
             <div className="flex h-10 w-full items-center justify-between md:hidden">
-                {/* Left: Brand name (and back button if exists) */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                     {backHref && (
                         <Link
                             href={backHref}
-                            className="group inline-flex h-9 items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2 text-xs font-medium text-white/80 transition hover:bg-white/15 hover:text-white"
+                            className="group inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-gray-800 dark:text-white/80 transition hover:bg-black/10 dark:hover:bg-white/15 hover:text-black dark:hover:text-white"
                             aria-label="Kembali"
                         >
                             <svg
@@ -41,74 +41,60 @@ export function Header({ active, onJump, sections, brand, subtitle, backHref, ac
                         </Link>
                     )}
                     <div className="flex min-w-0 flex-col">
-                        <span className="museum-kicker">J-DiMS / collection</span>
-                        <span className="truncate text-sm leading-tight font-semibold tracking-wide text-white">{label}</span>
-                        {subtitle && <span className="truncate text-[10px] tracking-wide text-white/65">{subtitle}</span>}
+                        <span className="museum-kicker text-[9px] tracking-widest text-[#d85c3e] dark:text-[#f1b19b]">J-DiMS / Digital Museum</span>
+                        <span className="truncate text-xs font-semibold tracking-wide text-gray-900 dark:text-white">{label}</span>
                     </div>
                 </div>
 
-                {/* Right: Logos */}
-                <a
-                    href="#intro"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onJump(0);
-                    }}
-                    className="flex origin-right scale-75 items-center"
-                >
-                    <Logo />
-                </a>
+                <div className="flex items-center gap-2">
+                    {actions}
+                </div>
             </div>
 
             {/* Desktop layout */}
-            <div className="hidden items-center gap-6 md:flex">
-                {backHref && (
-                    <Link
-                        href={backHref}
-                        className="group inline-flex h-9 items-center gap-1.5 rounded-md border border-white/15 bg-white/5 pr-3 pl-2 text-xs font-medium tracking-wide text-white/70 transition hover:bg-white/15 hover:text-white"
-                        aria-label="Kembali ke daftar"
-                    >
-                        <svg
-                            className="-ml-0.5 h-4 w-4 transition-transform group-hover:-translate-x-0.5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+            <div className="hidden items-center justify-between gap-6 md:flex">
+                <div className="flex items-center gap-4">
+                    {backHref && (
+                        <Link
+                            href={backHref}
+                            className="group inline-flex h-9 items-center gap-1.5 rounded-full border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 pr-3 pl-2.5 text-xs font-medium tracking-wide text-gray-800 dark:text-white/80 transition hover:border-black/30 dark:hover:border-white/30 hover:bg-black/10 dark:hover:bg-white/15 hover:text-black dark:hover:text-white"
+                            aria-label="Kembali ke daftar"
                         >
-                            <path d="M15 18l-6-6 6-6" />
-                        </svg>
-                        <span className="hidden sm:inline">Kembali</span>
-                    </Link>
-                )}
-                <a
-                    href="#intro"
-                    className="group flex items-center gap-3"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onJump(0);
-                    }}
-                >
-                    <Logo />
-                    <div className="flex flex-col">
-                        <span className="museum-kicker">J-DiMS / collection</span>
-                        <span className="text-base leading-tight font-semibold tracking-wide text-white group-hover:opacity-90">{label}</span>
-                        {subtitle && <span className="text-xs tracking-wide text-white/70 group-hover:opacity-90">{subtitle}</span>}
-                    </div>
-                </a>
-                {/* <nav className="flex gap-5 text-sm">
-          {sections.map((s,i)=>{
-            const lab = s.navLabel || s.title.split(' ')[0];
-            return (
-              <button key={s.id} onClick={()=>onJump(i)} className={`relative text-white/65 hover:text-white transition font-medium after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:bg-white after:rounded-full after:transition-[width,opacity] after:opacity-70 ${i===active?'after:w-full text-white':'after:w-0 hover:after:w-full'}`} aria-current={i===active? 'true':undefined}>
-                {lab}
-              </button>
-            );
-          })}
-        </nav> */}
-                <div className="ml-auto flex items-center gap-3">{actions}</div>
+                            <svg
+                                className="-ml-0.5 h-4 w-4 transition-transform group-hover:-translate-x-0.5"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="M15 18l-6-6 6-6" />
+                            </svg>
+                            <span>Kembali</span>
+                        </Link>
+                    )}
+
+                    <a
+                        href="#intro"
+                        className="group flex items-center gap-3"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            if (onJump) onJump(0);
+                        }}
+                    >
+                        <Logo />
+                        <div className="flex flex-col">
+                            <span className="museum-kicker text-[10px] tracking-widest text-[#d85c3e] dark:text-[#f1b19b]">J-DiMS / Jember Digital Museum System</span>
+                            <span className="text-sm font-semibold tracking-wide text-gray-900 dark:text-white group-hover:opacity-90">{label}</span>
+                        </div>
+                    </a>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {actions}
+                </div>
             </div>
-        </div>
+        </header>
     );
 }

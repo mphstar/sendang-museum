@@ -5,15 +5,21 @@ import { Head, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
+    Camera,
     Circle,
+    Compass,
     Hand,
     Info,
+    Layers,
     Menu,
     MousePointerClick,
     Music,
     Music2,
+    Pause,
     Play,
+    RotateCw,
     Scan,
+    Sparkles,
     Volume2,
     VolumeX,
     ZoomIn,
@@ -27,68 +33,56 @@ const markerStyles = `
   .info-image-marker {
     border: 3px solid #3b82f6 !important;
     border-radius: 50% !important;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4) !important;
-    transition: transform 0.3s ease !important;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5) !important;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
   
   .nav-image-marker {
     border: 3px solid #10b981 !important;
     border-radius: 50% !important;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4) !important;
-    transition: transform 0.3s ease !important;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5) !important;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
   
   .info-image-marker:hover,
   .nav-image-marker:hover {
-    transform: scale(1.1) !important;
+    transform: scale(1.18) !important;
   }
 `;
 
 export default function PanoramaViewer() {
     const { museum, allRuangan } = usePage().props as any;
 
-    // Find main room from all rooms
     const mainRuangan = allRuangan?.find((r: any) => r.is_main) || allRuangan?.[0];
 
-    // State for current active ruangan
     const [activeRuangan, setActiveRuangan] = useState(mainRuangan);
     const [activeMarkers, setActiveMarkers] = useState(mainRuangan?.markers || []);
-
-    // Debug props
-    console.log('=== PANORAMA VIEWER PROPS ===');
-    console.log('Museum:', museum);
-    console.log('All ruangan:', allRuangan);
-    console.log('Main ruangan:', mainRuangan);
-    console.log('Active ruangan:', activeRuangan);
-
-    // ==== Visitor Logging ====
-    useEffect(() => {
-        fetch('/api/visitor-log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                page_url: window.location.href,
-                museum_id: museum?.id || null,
-                referrer: document.referrer || null,
-            }),
-        }).catch(() => {}); // Ignore errors
-    }, [museum?.id]);
 
     const viewerRef = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
     const [panoramaLoaded, setPanoramaLoaded] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
+
+    // Marker & Narration dialog state
     const [showInfoDialog, setShowInfoDialog] = useState(false);
     const [selectedMarker, setSelectedMarker] = useState<any>(null);
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-    const [showVisitorGuide, setShowVisitorGuide] = useState(true); // Show guide on first load
-    const [showSidebar, setShowSidebar] = useState(false); // Sidebar state
+
+    // Navigation & Guide state
+    const [showVisitorGuide, setShowVisitorGuide] = useState(false);
+    const [showSidebar, setShowSidebar] = useState(false);
     const [projectionMode, setProjectionMode] = useState<'immersive' | 'planet'>('immersive');
+
+    // Autopilot / Auto-rotate state
+    const [isAutoRotating, setIsAutoRotating] = useState(false);
+    const autoRotateTimerRef = useRef<any>(null);
+
+    // Camera compass yaw / pitch state
+    const [cameraAngle, setCameraAngle] = useState<{ yaw: number; pitch: number }>({ yaw: 0, pitch: 0 });
+
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    // Room background audio (guide)
     const roomAudioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlayingRoomAudio, setIsPlayingRoomAudio] = useState(false);
-    // Ducking state: lower room audio volume while narration plays
     const roomAudioDuckedByNarrationRef = useRef(false);
     const roomAudioPrevVolumeRef = useRef<number>(1);
     const roomAudioStartNeededRef = useRef(false);
@@ -101,7 +95,6 @@ export default function PanoramaViewer() {
                 .then(() => {
                     setIsPlayingRoomAudio(true);
                     roomAudioStartNeededRef.current = false;
-                    // If narration is already playing, duck the room audio immediately
                     try {
                         if (audioRef.current && !audioRef.current.paused && roomAudioRef.current) {
                             roomAudioPrevVolumeRef.current = roomAudioRef.current.volume ?? 1;
@@ -109,7 +102,6 @@ export default function PanoramaViewer() {
                             roomAudioDuckedByNarrationRef.current = true;
                         }
                     } catch {}
-                    // remove any pending listeners
                     if (roomAudioStartUnsubsRef.current) {
                         roomAudioStartUnsubsRef.current.forEach((fn) => {
                             try {
@@ -119,9 +111,7 @@ export default function PanoramaViewer() {
                         roomAudioStartUnsubsRef.current = null;
                     }
                 })
-                .catch(() => {
-                    // still blocked; keep waiting
-                });
+                .catch(() => {});
         }
     }, []);
 
@@ -129,12 +119,10 @@ export default function PanoramaViewer() {
         if (!roomAudioStartNeededRef.current) return;
         const unsubs: Array<() => void> = [];
         const handler = () => tryStartRoomAudioNow();
-        // document-level listeners
         document.addEventListener('pointerdown', handler, { once: false });
         unsubs.push(() => document.removeEventListener('pointerdown', handler));
         document.addEventListener('click', handler, { once: false });
         unsubs.push(() => document.removeEventListener('click', handler));
-        // container-level listener
         if (viewerRef.current) {
             const el = viewerRef.current;
             el.addEventListener('pointerdown', handler, { once: false });
@@ -143,15 +131,19 @@ export default function PanoramaViewer() {
         roomAudioStartUnsubsRef.current = unsubs;
     }, [tryStartRoomAudioNow]);
 
-    // Check localStorage for visitor guide preference
     useEffect(() => {
         const hasSeenGuide = localStorage.getItem('museum-visitor-guide-seen');
         if (hasSeenGuide === 'true') {
             setShowVisitorGuide(false);
+        } else {
+            const timer = setTimeout(() => {
+                setShowVisitorGuide(true);
+            }, 2000); // 2 second delay
+            return () => clearTimeout(timer);
         }
     }, []);
 
-    // Handle visitor guide close
+
     const handleCloseVisitorGuide = () => {
         localStorage.setItem('museum-visitor-guide-seen', 'true');
         setShowVisitorGuide(false);
@@ -160,13 +152,9 @@ export default function PanoramaViewer() {
         }
     };
 
-    // Using MarkersPlugin chroma key for video markers (no canvas processing)
-
-    // Room switching function
+    // Room switching function with portal blur state
     const switchToRoom = useCallback(
         (targetRuanganId: number) => {
-            console.log('=== SWITCHING TO ROOM ===', targetRuanganId);
-            // Stop any playing narration audio when switching rooms
             if (audioRef.current) {
                 try {
                     audioRef.current.pause();
@@ -174,7 +162,6 @@ export default function PanoramaViewer() {
                 audioRef.current = null;
                 setIsPlayingAudio(false);
             }
-            // Stop room background audio when switching rooms
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
@@ -186,33 +173,24 @@ export default function PanoramaViewer() {
             const targetRuangan = allRuangan.find((r: any) => r.id === targetRuanganId);
 
             if (!targetRuangan) {
-                console.error('Target ruangan not found:', targetRuanganId);
                 toast.error('Ruangan tidak ditemukan');
                 return;
             }
 
             if (targetRuangan.id === activeRuangan?.id) {
-                console.log('Already in target room, skipping');
                 return;
             }
 
-            console.log('Switching from:', activeRuangan?.nama_ruangan, 'to:', targetRuangan.nama_ruangan);
-
-            // Set transitioning state to prevent multiple rapid switches
             setIsTransitioning(true);
             setPanoramaLoaded(false);
 
-            // Use setTimeout to ensure state updates are processed
             setTimeout(() => {
-                // Update state
                 setActiveRuangan(targetRuangan);
                 setActiveMarkers(targetRuangan.markers || []);
 
-                // Update URL
                 const newUrl = `/museum/${museum.id}#ruangan-${targetRuangan.id}`;
                 window.history.pushState({ ruanganId: targetRuangan.id }, '', newUrl);
 
-                // Close dialogs
                 setShowInfoDialog(false);
                 setSelectedMarker(null);
 
@@ -222,9 +200,6 @@ export default function PanoramaViewer() {
         [allRuangan, museum.id, activeRuangan],
     );
 
-    // Removed custom video element path; we will use MarkersPlugin videoLayer in generateMarkers
-
-    // Inject marker styles
     useEffect(() => {
         const styleElement = document.createElement('style');
         styleElement.textContent = markerStyles;
@@ -241,16 +216,8 @@ export default function PanoramaViewer() {
     const generateMarkers = useCallback(() => {
         if (!activeMarkers || activeMarkers.length === 0) return [];
 
-        console.log('Generating markers:', activeMarkers);
-        console.log(
-            'Markers with video:',
-            activeMarkers.filter((m: any) => m.media_type === 'video'),
-        );
-
         return activeMarkers
             .map((marker: any) => {
-                console.log('Processing marker:', marker.judul, 'Type:', marker.type, 'Media:', marker.media_type);
-
                 const baseConfig = {
                     id: marker.id.toString(),
                     position: {
@@ -267,25 +234,17 @@ export default function PanoramaViewer() {
                     },
                 };
 
-                console.log('Base config for marker:', baseConfig);
-
-                // Simplified marker creation
                 if (marker.type === 'navigation') {
-                    console.log('Creating navigation marker for:', marker.judul, 'Target:', marker.navigation_target);
-
-                    // Create navigation marker element
                     const navElement = document.createElement('div');
                     navElement.className = 'w-12 h-12 mx-auto relative';
                     navElement.setAttribute('role', 'button');
                     navElement.setAttribute('tabindex', '0');
                     navElement.style.touchAction = 'manipulation';
-                    navElement.style.cssText = `
-          cursor: pointer;
-        `;
+                    navElement.style.cssText = `cursor: pointer;`;
 
                     navElement.innerHTML = `
-          <div style="width: 100%; height: 100%; background: #10b981; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center;">
-            <svg style="width: 16px; height: 16px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <div style="width: 100%; height: 100%; background: #10b981; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5); display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite;">
+            <svg style="width: 18px; height: 18px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
               <path d="M9 6l6 6-6 6"/>
             </svg>
           </div>
@@ -297,25 +256,19 @@ export default function PanoramaViewer() {
                         anchor: 'center center',
                     };
                 } else {
-                    // For info markers with media
                     if (marker.media_type === 'video' && marker.media_url) {
-                        // Validate and normalize media URL
                         const rawUrl = marker.media_url;
                         const isStringUrl = typeof rawUrl === 'string' && rawUrl.length > 0;
                         let mediaUrl: string | null = null;
                         if (isStringUrl) {
                             try {
-                                // Support both absolute and relative URLs
                                 mediaUrl = new URL(rawUrl, window.location.origin).href;
-                            } catch (e) {
-                                console.warn('Invalid media_url, cannot construct URL:', rawUrl);
+                            } catch {
                                 mediaUrl = null;
                             }
                         }
 
                         if (!mediaUrl) {
-                            console.warn('Skipping video layer, invalid media_url for marker:', marker.judul, rawUrl);
-                            // Fallback to a simple info element so user still sees something clickable
                             const fallbackEl = document.createElement('div');
                             fallbackEl.className = 'w-12 h-12 mx-auto relative';
                             fallbackEl.setAttribute('role', 'button');
@@ -323,8 +276,8 @@ export default function PanoramaViewer() {
                             fallbackEl.style.touchAction = 'manipulation';
                             fallbackEl.style.cssText = `cursor: pointer;`;
                             fallbackEl.innerHTML = `
-              <div style="width: 100%; height: 100%; background: #ef4444; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); display: flex; align-items: center; justify-content: center;">
-                <svg style="width: 16px; height: 16px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+              <div style="width: 100%; height: 100%; background: #ef4444; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5); display: flex; align-items: center; justify-content: center;">
+                <svg style="width: 18px; height: 18px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
                   <path d="M12 9v4m0 4h.01"/>
                   <circle cx="12" cy="12" r="10"/>
                 </svg>
@@ -338,18 +291,15 @@ export default function PanoramaViewer() {
                             } as any;
                         }
 
-                        console.log('Processing video info marker with controllable HTMLVideoElement:', marker.judul, 'URL:', mediaUrl);
                         const width = Number(marker.media_width) || 240;
                         const height = Number(marker.media_height) || 240;
-                        // Follow the Layers demo: provide the URL directly as videoLayer, let plugin manage the video element
-                        // Enable chroma key as requested
                         return {
                             ...baseConfig,
                             videoLayer: mediaUrl,
                             size: { width, height },
                             style: { cursor: 'pointer' },
                             anchor: 'center center',
-                            tooltip: 'Play / Stop',
+                            tooltip: 'Putar Video',
                             chromaKey: {
                                 enabled: true,
                                 color: '#00FF00',
@@ -359,28 +309,22 @@ export default function PanoramaViewer() {
                             data: { ...baseConfig.data, clickAction: 'toggleVideoInfoPlay' },
                         } as any;
                     } else {
-                        console.log('Processing regular info marker:', marker.judul);
-
-                        // Create info marker element
                         const infoElement = document.createElement('div');
                         infoElement.className = 'w-12 h-12 mx-auto relative';
                         infoElement.setAttribute('role', 'button');
                         infoElement.setAttribute('tabindex', '0');
                         infoElement.style.touchAction = 'manipulation';
-                        infoElement.style.cssText = `
-            cursor: pointer;
-          `;
+                        infoElement.style.cssText = `cursor: pointer;`;
 
                         infoElement.innerHTML = `
-            <div style="width: 100%; height: 100%; background: #3b82f6; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); display: flex; align-items: center; justify-content: center;">
-              <svg style="width: 16px; height: 16px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <div style="width: 100%; height: 100%; background: #3b82f6; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5); display: flex; align-items: center; justify-content: center;">
+              <svg style="width: 18px; height: 18px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
                 <circle cx="12" cy="12" r="10"/>
                 <path d="M12 16v-4m0-4h.01"/>
               </svg>
             </div>
           `;
 
-                        // Regular info marker
                         return {
                             ...baseConfig,
                             element: infoElement,
@@ -390,9 +334,9 @@ export default function PanoramaViewer() {
                 }
             })
             .filter((marker: any) => marker !== null);
-    }, [activeMarkers, switchToRoom]);
+    }, []);
 
-    // Handle browser back/forward navigation and initial hash
+    // Handle hash and popstate navigation
     useEffect(() => {
         const handleHashChange = () => {
             const hash = window.location.hash;
@@ -401,7 +345,6 @@ export default function PanoramaViewer() {
             if (match) {
                 const ruanganIdFromHash = parseInt(match[1]);
                 if (ruanganIdFromHash && ruanganIdFromHash !== activeRuangan?.id) {
-                    // Stop any playing narration audio when switching rooms via hash
                     if (audioRef.current) {
                         try {
                             audioRef.current.pause();
@@ -409,7 +352,6 @@ export default function PanoramaViewer() {
                         audioRef.current = null;
                         setIsPlayingAudio(false);
                     }
-                    // Stop room background audio when switching rooms via hash
                     if (roomAudioRef.current) {
                         try {
                             roomAudioRef.current.pause();
@@ -421,55 +363,21 @@ export default function PanoramaViewer() {
                     if (targetRuangan) {
                         setActiveRuangan(targetRuangan);
                         setActiveMarkers(targetRuangan.markers || []);
-                        console.log('Navigation via hash change to:', targetRuangan.nama_ruangan);
                     }
                 }
             }
         };
 
-        // Handle initial hash on page load
         handleHashChange();
 
-        // Handle popstate (back/forward buttons)
         const handlePopState = (event: PopStateEvent) => {
             if (event.state?.ruanganId) {
-                // Stop any playing narration audio when switching rooms via history
-                if (audioRef.current) {
-                    try {
-                        audioRef.current.pause();
-                    } catch {}
-                    audioRef.current = null;
-                    setIsPlayingAudio(false);
-                }
-                if (roomAudioRef.current) {
-                    try {
-                        roomAudioRef.current.pause();
-                    } catch {}
-                    roomAudioRef.current = null;
-                    setIsPlayingRoomAudio(false);
-                }
                 const targetRuangan = allRuangan.find((r: any) => r.id === event.state.ruanganId);
                 if (targetRuangan) {
                     setActiveRuangan(targetRuangan);
                     setActiveMarkers(targetRuangan.markers || []);
-                    console.log('Navigation via browser back/forward to:', targetRuangan.nama_ruangan);
                 }
             } else {
-                // If no state, go back to main room
-                if (audioRef.current) {
-                    try {
-                        audioRef.current.pause();
-                    } catch {}
-                    audioRef.current = null;
-                    setIsPlayingAudio(false);
-                }
-                if (roomAudioRef.current) {
-                    try {
-                        roomAudioRef.current.pause();
-                    } catch {}
-                    roomAudioRef.current = null;
-                    setIsPlayingRoomAudio(false);
-                }
                 const mainRuangan = allRuangan?.find((r: any) => r.is_main) || allRuangan?.[0];
                 if (mainRuangan) {
                     setActiveRuangan(mainRuangan);
@@ -487,33 +395,10 @@ export default function PanoramaViewer() {
         };
     }, [allRuangan, activeRuangan]);
 
-    // Prevent horizontal overflow on mount
-    useEffect(() => {
-        // Set overflow hidden on body and html
-        const originalBodyOverflow = document.body.style.overflow;
-        const originalHtmlOverflow = document.documentElement.style.overflow;
-
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.maxWidth = '100vw';
-        document.documentElement.style.maxWidth = '100vw';
-
-        return () => {
-            // Restore original styles on unmount
-            document.body.style.overflow = originalBodyOverflow;
-            document.documentElement.style.overflow = originalHtmlOverflow;
-            document.body.style.maxWidth = '';
-            document.documentElement.style.maxWidth = '';
-        };
-    }, []);
-
-    // Setup global marker click handler as fallback
     useEffect(() => {
         (window as any).handleMarkerClick = (targetId: number) => {
-            console.log('Global marker click handler called with:', targetId);
             switchToRoom(targetId);
         };
-
         return () => {
             delete (window as any).handleMarkerClick;
         };
@@ -521,9 +406,7 @@ export default function PanoramaViewer() {
 
     // Initialize Photo Sphere Viewer
     useEffect(() => {
-        // Start room-level audio guide if available for this room
         try {
-            // stop previous room audio first (safety)
             if (roomAudioRef.current) {
                 try {
                     roomAudioRef.current.pause();
@@ -537,16 +420,15 @@ export default function PanoramaViewer() {
                 try {
                     resolvedUrl = new URL(guideUrl, window.location.origin).href;
                 } catch {
-                    resolvedUrl = guideUrl; // fallback to raw
+                    resolvedUrl = guideUrl;
                 }
                 const audio = new Audio(resolvedUrl);
-                audio.loop = true; // loop background guide by default
+                audio.loop = true;
                 roomAudioRef.current = audio;
                 audio
                     .play()
                     .then(() => {
                         setIsPlayingRoomAudio(true);
-                        // if narration already playing, duck immediately
                         try {
                             if (audioRef.current && !audioRef.current.paused) {
                                 roomAudioPrevVolumeRef.current = audio.volume ?? 1;
@@ -556,7 +438,6 @@ export default function PanoramaViewer() {
                         } catch {}
                     })
                     .catch(() => {
-                        // autoplay blocked; arm gesture listeners
                         setIsPlayingRoomAudio(false);
                         roomAudioStartNeededRef.current = true;
                         scheduleRoomAudioStartOnGesture();
@@ -564,65 +445,38 @@ export default function PanoramaViewer() {
             }
         } catch {}
 
-        if (!activeRuangan?.panorama_url) {
-            console.log('No panorama URL for:', activeRuangan?.nama_ruangan);
-            return;
-        }
+        if (!activeRuangan?.panorama_url) return;
 
-        console.log('Viewer effect triggered for:', activeRuangan.nama_ruangan);
-
-        // Reset loading state
         setPanoramaLoaded(false);
         setIsTransitioning(false);
 
         const initViewer = async () => {
             try {
-                // Wait for container to be available
                 let attempts = 0;
                 while (!viewerRef.current && attempts < 10) {
-                    console.log('Waiting for container, attempt:', attempts + 1);
                     await new Promise((resolve) => setTimeout(resolve, 100));
                     attempts++;
                 }
 
-                if (!viewerRef.current) {
-                    console.error('Container element not found after waiting');
-                    return;
-                }
+                if (!viewerRef.current) return;
 
-                console.log('Container found, initializing viewer for:', activeRuangan.nama_ruangan);
-
-                // Destroy existing viewer first
                 if (viewer) {
-                    console.log('Destroying existing viewer...');
                     try {
                         viewer.destroy();
-                    } catch (e) {
-                        console.log('Error destroying viewer:', e);
-                    }
+                    } catch {}
                     setViewer(null);
-                    // Add small delay after destroying
                     await new Promise((resolve) => setTimeout(resolve, 100));
                 }
 
-                // Clear container and ensure it's ready
                 if (viewerRef.current) {
                     viewerRef.current.innerHTML = '';
-                    // Add small delay to ensure DOM is updated
                     await new Promise((resolve) => setTimeout(resolve, 50));
-                }
-
-                // Check container again before creating viewer
-                if (!viewerRef.current) {
-                    console.error('Container disappeared during initialization');
-                    return;
                 }
 
                 const { Viewer } = await import('@photo-sphere-viewer/core');
                 const { MarkersPlugin } = await import('@photo-sphere-viewer/markers-plugin');
 
                 const generatedMarkers = generateMarkers();
-                console.log('Generated markers for viewer:', generatedMarkers);
 
                 const newViewer = new Viewer({
                     container: viewerRef.current,
@@ -649,41 +503,24 @@ export default function PanoramaViewer() {
                     },
                 });
 
-                // Set loaded immediately when viewer is created
                 setPanoramaLoaded(true);
 
+                // Listen for camera position changes to update HUD compass
+                newViewer.addEventListener('position-updated', (e: any) => {
+                    if (e.position) {
+                        const degYaw = Math.round((e.position.yaw * 180) / Math.PI) % 360;
+                        const degPitch = Math.round((e.position.pitch * 180) / Math.PI);
+                        setCameraAngle({ yaw: (degYaw + 360) % 360, pitch: degPitch });
+                    }
+                });
+
                 newViewer.addEventListener('ready', () => {
-                    console.log('Panorama ready for:', activeRuangan.nama_ruangan);
-                    // try start room audio on first viewer interaction if was blocked
                     newViewer.addEventListener('click', () => {
                         if (roomAudioStartNeededRef.current) tryStartRoomAudioNow();
                     });
 
-                    // Setup marker click handler
                     const markersPlugin = newViewer.getPlugin(MarkersPlugin);
                     if (markersPlugin) {
-                        // Ensure all video markers are paused by default (start from beginning)
-                        setTimeout(() => {
-                            try {
-                                const allMarkers = (markersPlugin as any).getMarkers ? (markersPlugin as any).getMarkers() : [];
-                                if (Array.isArray(allMarkers)) {
-                                    allMarkers.forEach((m: any) => {
-                                        const v: HTMLVideoElement | undefined = (m as any).video as any;
-                                        if (v) {
-                                            try {
-                                                v.pause();
-                                            } catch {}
-                                            try {
-                                                v.currentTime = 0;
-                                            } catch {}
-                                        }
-                                    });
-                                }
-                            } catch (e) {
-                                console.warn('Unable to pause video markers by default:', e);
-                            }
-                        }, 0);
-
                         markersPlugin.addEventListener('select-marker', (e: any) => {
                             const marker = e.marker;
                             const markerData = marker.data || marker.config?.data;
@@ -697,24 +534,20 @@ export default function PanoramaViewer() {
                                 setSelectedMarker(markerData);
                                 setShowInfoDialog(true);
                             } else if (markerData?.clickAction === 'toggleVideoInfoPlay') {
-                                // Play/Stop behavior: when starting, always from the beginning (video & audio)
                                 try {
                                     const videoEl: HTMLVideoElement | undefined = (marker as any).video as any;
                                     if (videoEl) {
                                         const isPaused = videoEl.paused;
                                         if (isPaused) {
-                                            // start playback under user gesture (like demo), from the beginning
                                             try {
                                                 videoEl.currentTime = 0;
                                             } catch {}
                                             (videoEl as any).playsInline = true;
                                             videoEl.setAttribute('playsinline', 'true');
-                                            videoEl.muted = true; // keep video muted; separate narration below
+                                            videoEl.muted = true;
                                             videoEl.play().catch(() => {});
-                                            // start audio narration only if provided by DB
                                             const audioUrl = markerData?.audio_url;
                                             if (audioUrl) {
-                                                // pause room audio while narration plays
                                                 if (roomAudioRef.current) {
                                                     try {
                                                         roomAudioPrevVolumeRef.current = roomAudioRef.current.volume ?? 1;
@@ -724,18 +557,14 @@ export default function PanoramaViewer() {
                                                 } else {
                                                     roomAudioDuckedByNarrationRef.current = false;
                                                 }
-                                                // restart audio from beginning by recreating it
                                                 playAudioNarration(audioUrl);
                                             }
                                         } else {
-                                            // stop playback and reset to beginning
                                             videoEl.pause();
                                             try {
                                                 videoEl.currentTime = 0;
                                             } catch {}
-                                            // stop narration audio
                                             stopAudioNarration();
-                                            // resume room audio if it was paused by narration
                                             if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                                                 try {
                                                     roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
@@ -743,8 +572,6 @@ export default function PanoramaViewer() {
                                                 roomAudioDuckedByNarrationRef.current = false;
                                             }
                                         }
-                                    } else {
-                                        console.warn('No video element attached to marker for toggle.');
                                     }
                                 } catch (err) {
                                     console.error('Error toggling video play/pause:', err);
@@ -763,15 +590,12 @@ export default function PanoramaViewer() {
             }
         };
 
-        // Add small delay before initialization to ensure DOM is stable
         const timeoutId = setTimeout(() => {
             initViewer();
         }, 50);
 
-        // Cleanup function
         return () => {
             clearTimeout(timeoutId);
-            // Ensure audio stops on unmount / viewer re-init
             if (audioRef.current) {
                 try {
                     audioRef.current.pause();
@@ -786,36 +610,22 @@ export default function PanoramaViewer() {
                 roomAudioRef.current = null;
                 setIsPlayingRoomAudio(false);
             }
-            if (roomAudioStartUnsubsRef.current) {
-                roomAudioStartUnsubsRef.current.forEach((fn) => {
-                    try {
-                        fn();
-                    } catch {}
-                });
-                roomAudioStartUnsubsRef.current = null;
-            }
             if (viewer) {
-                console.log('Cleaning up viewer...');
                 try {
                     viewer.destroy();
-                } catch (e) {
-                    console.log('Error during cleanup:', e);
-                }
+                } catch {}
             }
         };
-    }, [activeRuangan, activeMarkers, generateMarkers, projectionMode, switchToRoom]);
+    }, [activeRuangan, generateMarkers, projectionMode, switchToRoom]);
 
-    // Audio narration functions
+    // Audio Narration Controls
     const playAudioNarration = (audioUrl: string) => {
-        stopAudioNarration(); // Stop any current audio
-
+        stopAudioNarration();
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
-        // Loop narration to match looping video markers
         audio.loop = true;
 
         audio.addEventListener('loadstart', () => setIsPlayingAudio(true));
-        // If looping, don't mark as stopped on 'ended' between loops
         audio.addEventListener('ended', () => {
             if (!audio.loop) setIsPlayingAudio(false);
         });
@@ -842,7 +652,6 @@ export default function PanoramaViewer() {
         if (selectedMarker?.audio_url) {
             if (isPlayingAudio) {
                 stopAudioNarration();
-                // restore room audio volume if it was ducked
                 if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                     try {
                         roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
@@ -850,7 +659,6 @@ export default function PanoramaViewer() {
                     roomAudioDuckedByNarrationRef.current = false;
                 }
             } else {
-                // duck room audio while narration plays
                 if (roomAudioRef.current) {
                     try {
                         roomAudioPrevVolumeRef.current = roomAudioRef.current.volume ?? 1;
@@ -865,149 +673,266 @@ export default function PanoramaViewer() {
         }
     };
 
+    // Autopilot / Auto-Rotate Toggle
+    const toggleAutoRotate = () => {
+        if (!viewer) return;
+        if (isAutoRotating) {
+            viewer.stopAutorotate();
+            setIsAutoRotating(false);
+            toast.info('Tur Otomatis Dinonaktifkan');
+        } else {
+            viewer.startAutorotate({ autorotateSpeed: '1rpm' });
+            setIsAutoRotating(true);
+            toast.success('Tur Otomatis Aktif');
+        }
+    };
+
+    // Virtual Souvenir Snapshot Download
+    const takeSouvenirSnapshot = () => {
+        if (!viewer) return;
+        try {
+            const psvCanvas = viewer.container.querySelector('canvas') as HTMLCanvasElement;
+            if (!psvCanvas) {
+                toast.error('Gagal mengambil gambar canvas 360°');
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = psvCanvas.width;
+            canvas.height = psvCanvas.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            // Draw current 360 view
+            ctx.drawImage(psvCanvas, 0, 0);
+
+            // Add futuristic watermarked frame overlay
+            const padding = 40;
+            ctx.fillStyle = 'rgba(11, 13, 15, 0.75)';
+            ctx.fillRect(0, canvas.height - 120, canvas.width, 120);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 36px sans-serif';
+            ctx.fillText(`J-DiMS Virtual Visitor Souvenir`, padding, canvas.height - 70);
+
+            ctx.fillStyle = '#f1b19b';
+            ctx.font = '22px sans-serif';
+            ctx.fillText(`${museum.title} — ${activeRuangan.nama_ruangan}`, padding, canvas.height - 35);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '18px monospace';
+            const dateStr = new Date().toLocaleDateString('id-ID', { dateStyle: 'full' });
+            ctx.fillText(dateStr, canvas.width - 450, canvas.height - 45);
+
+            const link = document.createElement('a');
+            link.download = `J-DiMS_${activeRuangan.nama_ruangan.replace(/\s+/g, '_')}_Souvenir.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            toast.success('Foto kenangan 360° berhasil diunduh!');
+        } catch (e) {
+            console.error('Error taking snapshot:', e);
+            toast.error('Gagal mengambil foto kenangan');
+        }
+    };
+
     return (
         <>
-            <Head title={`${activeRuangan.nama_ruangan} - ${museum.title}`} />
+            <Head title={`${activeRuangan.nama_ruangan} — ${museum.title} | J-DiMS`} />
 
-            {/* Global styles to prevent horizontal overflow */}
-            <style>{`
-        html, body {
-          overflow-x: hidden !important;
-          max-width: 100vw !important;
-        }
-        
-        /* Photo Sphere Viewer specific fixes */
-        .psv-container {
-          overflow: hidden !important;
-        }
-        
-        .psv-canvas-container {
-          overflow: hidden !important;
-        }
-        
-        /* Prevent any child elements from causing horizontal scroll */
-        * {
-          box-sizing: border-box;
-        }
-      `}</style>
+            <div className="museum-panorama relative h-screen w-screen overflow-hidden bg-[#0b0d0f]">
+                {/* Sci-Fi Glass HUD Header Bar */}
+                <div className="glass-panel absolute top-0 left-0 right-0 z-[70] flex items-center justify-between border-b border-white/10 px-4 py-3 md:px-8">
+                    {/* Left: Back & Room Breadcrumb */}
+                    <div className="flex items-center gap-3 min-w-0">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.visit('/')}
+                            className="flex-shrink-0 rounded-full border border-white/15 bg-white/5 px-3 text-xs text-white hover:bg-white/15"
+                        >
+                            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                            <span>Kembali</span>
+                        </Button>
 
-            <div className="museum-panorama relative h-screen w-screen overflow-hidden bg-[#111417]">
-                {/* Header */}
-                <div className="absolute top-0 right-0 left-0 z-[70] overflow-hidden border-b border-white/15 bg-[#111417]/55 p-4 backdrop-blur-md">
-                    <div className="flex w-full max-w-full items-center justify-between gap-3">
-                        <div className="flex min-w-0 flex-1 items-center gap-4">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => router.visit('/')}
-                                className="flex-shrink-0 border border-white/20 text-white hover:bg-white/10"
-                            >
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Kembali
-                            </Button>
-                            <div className="min-w-0 flex-1 text-white">
-                                <p className="museum-kicker mb-1">
-                                    Ruang {allRuangan.findIndex((room: any) => room.id === activeRuangan.id) + 1} / {allRuangan.length}
-                                </p>
-                                <h1 className="truncate text-base font-semibold sm:text-lg">{activeRuangan.nama_ruangan}</h1>
-                                <p className="truncate text-xs text-white/65 sm:text-sm">{museum.title}</p>
+                        <div className="min-w-0 flex-col flex">
+                            <div className="flex items-center gap-2">
+                                <span className="museum-kicker text-[9px] tracking-widest text-[#f1b19b] truncate">
+                                    {museum.title}
+                                </span>
+                                <span className="glass-pill rounded-full px-2 py-0.2 text-[9px] font-bold text-white/80">
+                                    Ruang {allRuangan.findIndex((room: any) => room.id === activeRuangan.id) + 1}/{allRuangan.length}
+                                </span>
                             </div>
+                            <h1 className="truncate text-sm font-bold text-white md:text-base">{activeRuangan.nama_ruangan}</h1>
                         </div>
-                        <div className="flex shrink-0 items-center border border-white/20 bg-black/20 p-1" aria-label="Mode proyeksi panorama">
+                    </div>
+
+                    {/* Right: HUD Control Ribbon */}
+                    <div className="flex items-center gap-2">
+                        {/* Auto-Rotate Autopilot Toggle */}
+                        <button
+                            onClick={toggleAutoRotate}
+                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                                isAutoRotating
+                                    ? 'border-[#d85c3e] bg-[#d85c3e]/30 text-[#f1b19b] shadow-[0_0_15px_rgba(216,92,62,0.4)]'
+                                    : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                            }`}
+                            title="Tur Otomatis (Autopilot 360)"
+                        >
+                            <RotateCw className={`h-3.5 w-3.5 ${isAutoRotating ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">{isAutoRotating ? 'Tur Otomatis On' : 'Tur Otomatis'}</span>
+                        </button>
+
+                        {/* Snapshot Souvenir Camera */}
+                        <button
+                            onClick={takeSouvenirSnapshot}
+                            className="glass-pill flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/15 transition"
+                            title="Ambil Foto Kenangan 360°"
+                        >
+                            <Camera className="h-3.5 w-3.5 text-[#f1b19b]" />
+                            <span className="hidden sm:inline">Foto Kenangan</span>
+                        </button>
+
+                        {/* Projection Mode Switcher */}
+                        <div className="glass-pill flex items-center p-0.5 rounded-full border border-white/15">
                             <button
                                 type="button"
                                 onClick={() => setProjectionMode('immersive')}
-                                className={`flex h-9 items-center gap-2 px-3 text-xs font-semibold transition-colors ${projectionMode === 'immersive' ? 'bg-[#f2efe8] text-[#111417]' : 'text-white/70 hover:text-white'}`}
-                                aria-pressed={projectionMode === 'immersive'}
-                                title="Tampilan panorama imersif"
+                                className={`flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition ${
+                                    projectionMode === 'immersive' ? 'bg-[#d85c3e] text-white' : 'text-white/60 hover:text-white'
+                                }`}
+                                title="Mode 360 Imersif"
                             >
-                                <Scan className="h-4 w-4" />
-                                <span className="hidden sm:inline">Imersif</span>
+                                <Scan className="h-3 w-3" />
+                                <span className="hidden sm:inline">360°</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setProjectionMode('planet')}
-                                className={`flex h-9 items-center gap-2 px-3 text-xs font-semibold transition-colors ${projectionMode === 'planet' ? 'bg-[#d85c3e] text-white' : 'text-white/70 hover:text-white'}`}
-                                aria-pressed={projectionMode === 'planet'}
-                                title="Tampilan panorama seperti globe"
+                                className={`flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition ${
+                                    projectionMode === 'planet' ? 'bg-[#d85c3e] text-white' : 'text-white/60 hover:text-white'
+                                }`}
+                                title="Mode Globe / Little Planet"
                             >
-                                <Circle className="h-4 w-4" />
+                                <Circle className="h-3 w-3" />
                                 <span className="hidden sm:inline">Globe</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Middle Left Trigger Buttons (Menu + Audio Toggle) */}
+                {/* Left Floating Menu & Ambient Audio Control */}
                 <div
-                    className={`fixed top-1/2 left-4 z-[70] -translate-y-1/2 transform transition-all duration-300 ${
+                    className={`fixed top-24 left-4 z-[70] flex flex-col gap-2 transition-all duration-300 ${
                         showSidebar ? 'pointer-events-none opacity-0' : 'opacity-100'
                     }`}
                 >
-                    <div className="flex flex-col gap-2">
+                    <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setShowSidebar(true)}
+                        className="glass-panel flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-[#d85c3e] p-0 text-white shadow-lg transition hover:bg-[#b94830]"
+                        title="Buku Induk Museum & Ruangan"
+                    >
+                        <Menu className="h-4 w-4" />
+                    </Button>
+
+                    {activeRuangan?.audio_guide_url && (
                         <Button
                             variant="default"
                             size="sm"
-                            onClick={() => setShowSidebar(true)}
-                            className="rounded-full border border-white/30 bg-[#d85c3e] p-3 text-white shadow-lg transition-colors duration-200 hover:bg-[#b94830]"
-                            title="Menu Museum"
-                        >
-                            <Menu className="h-5 w-5" />
-                        </Button>
-                        {activeRuangan?.audio_guide_url && (
-                            <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => {
-                                    if (roomAudioRef.current) {
-                                        if (isPlayingRoomAudio) {
-                                            roomAudioRef.current.pause();
-                                            setIsPlayingRoomAudio(false);
-                                        } else {
-                                            roomAudioRef.current
-                                                .play()
-                                                .then(() => setIsPlayingRoomAudio(true))
-                                                .catch(() => {});
-                                        }
+                            onClick={() => {
+                                if (roomAudioRef.current) {
+                                    if (isPlayingRoomAudio) {
+                                        roomAudioRef.current.pause();
+                                        setIsPlayingRoomAudio(false);
+                                    } else {
+                                        roomAudioRef.current
+                                            .play()
+                                            .then(() => setIsPlayingRoomAudio(true))
+                                            .catch(() => {});
                                     }
-                                }}
-                                className={`rounded-full p-3 shadow-lg transition-all duration-200 hover:shadow-xl ${
-                                    isPlayingRoomAudio
-                                        ? 'bg-[#f2efe8] text-[#111417] hover:bg-white'
-                                        : 'bg-[#111417]/80 text-white/70 hover:bg-[#111417]'
-                                }`}
-                                title={isPlayingRoomAudio ? 'Matikan Audio Ruangan' : 'Nyalakan Audio Ruangan'}
-                            >
-                                {isPlayingRoomAudio ? <Music2 className="h-5 w-5" /> : <Music className="h-5 w-5" />}
-                            </Button>
-                        )}
-                    </div>
+                                }
+                            }}
+                            className={`glass-panel flex h-10 w-10 items-center justify-center rounded-full border p-0 transition ${
+                                isPlayingRoomAudio
+                                    ? 'border-[#d85c3e] bg-[#d85c3e]/30 text-[#f1b19b] shadow-[0_0_15px_rgba(216,92,62,0.4)]'
+                                    : 'border-white/15 bg-black/40 text-white/70 hover:text-white'
+                            }`}
+                            title={isPlayingRoomAudio ? 'Matikan Audio Pemandu' : 'Putar Audio Pemandu'}
+                        >
+                            {isPlayingRoomAudio ? <Music2 className="h-4 w-4 animate-pulse" /> : <Music className="h-4 w-4" />}
+                        </Button>
+                    )}
                 </div>
 
-                {/* Panorama Viewer */}
+                {/* Camera Orientation Compass Widget (Top Right) */}
+                <div className="pointer-events-none fixed top-20 right-6 z-[65] hidden md:flex items-center gap-3 glass-pill px-3 py-1.5 rounded-full border border-white/10 text-xs font-mono text-white/70">
+                    <Compass className="h-4 w-4 text-[#f1b19b] animate-spin" style={{ animationDuration: '20s' }} />
+                    <span>
+                        YAW: {cameraAngle.yaw}° | PITCH: {cameraAngle.pitch}°
+                    </span>
+                </div>
+
+                {/* Main Photo Sphere Viewer Container */}
                 <div
                     ref={viewerRef}
-                    className={`h-full w-full overflow-hidden transition-opacity duration-300 ${panoramaLoaded ? 'opacity-100' : 'opacity-30'}`}
+                    className={`h-full w-full overflow-hidden transition-all duration-700 ${
+                        panoramaLoaded ? 'opacity-100 scale-100' : 'opacity-20 scale-105'
+                    }`}
                 />
 
-                {/* Simple Loading indicator */}
+                {/* Panorama Loading Overlay */}
                 {!panoramaLoaded && (
-                    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
-                        <div className="text-center text-white">
-                            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-white"></div>
-                            <p>Memuat panorama...</p>
+                    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#0b0d0f]/80 backdrop-blur-md">
+                        <div className="flex flex-col items-center gap-3 text-center text-white">
+                            <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#d85c3e]" />
+                            <p className="font-semibold text-sm">Memuat Panorama 360°...</p>
+                            <p className="text-xs text-white/50">{activeRuangan.nama_ruangan}</p>
                         </div>
                     </div>
                 )}
 
-                {/* Info Dialog */}
+                {/* Bottom Interactive Room Switcher Ribbon */}
+                {allRuangan && allRuangan.length > 1 && (
+                    <div className="glass-panel fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] flex max-w-[92vw] items-center gap-2 overflow-x-auto rounded-full border border-white/15 p-1.5 scrollbar-none">
+                        {allRuangan.map((room: any, index: number) => {
+                            const isActive = room.id === activeRuangan.id;
+                            return (
+                                <button
+                                    key={room.id}
+                                    onClick={() => switchToRoom(room.id)}
+                                    className={`group relative flex items-center gap-2.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                                        isActive
+                                            ? 'bg-[#d85c3e] text-white shadow-[0_0_16px_rgba(216,92,62,0.4)]'
+                                            : 'bg-white/5 text-white/70 hover:bg-white/15 hover:text-white'
+                                    }`}
+                                >
+                                    <span className="font-mono text-[10px] opacity-70">#{index + 1}</span>
+                                    <span className="truncate max-w-[120px]">{room.nama_ruangan}</span>
+                                    {room.markers && room.markers.length > 0 && (
+                                        <span
+                                            className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold ${
+                                                isActive ? 'bg-black/30 text-white' : 'bg-white/10 text-white/60'
+                                            }`}
+                                        >
+                                            {room.markers.length}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Marker Info Dialog */}
                 <Dialog
                     open={showInfoDialog}
                     onOpenChange={(open) => {
                         setShowInfoDialog(open);
                         if (!open) {
                             stopAudioNarration();
-                            // restore room audio volume if it was ducked by narration
                             if (roomAudioDuckedByNarrationRef.current && roomAudioRef.current) {
                                 try {
                                     roomAudioRef.current.volume = roomAudioPrevVolumeRef.current || 1;
@@ -1017,132 +942,127 @@ export default function PanoramaViewer() {
                         }
                     }}
                 >
-                    <DialogContent className="max-w-md dark:border-gray-700 dark:bg-gray-900">
+                    <DialogContent className="z-[140] max-w-lg border-white/15 bg-[#111417] text-[#f2efe8] p-6 rounded-2xl">
                         <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2 dark:text-gray-100">
-                                <Info className="h-5 w-5 text-blue-500" />
-                                {selectedMarker?.judul}
-                            </DialogTitle>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Sparkles className="h-4 w-4 text-[#d85c3e]" />
+                                <span className="museum-kicker text-[10px] text-[#f1b19b]">Artefak & Koleksi Bersejarah</span>
+                            </div>
+                            <DialogTitle className="text-xl font-black text-white">{selectedMarker?.judul}</DialogTitle>
                         </DialogHeader>
 
                         {selectedMarker?.deskripsi && (
-                            <DialogDescription className="text-gray-600 dark:text-gray-300">{selectedMarker.deskripsi}</DialogDescription>
+                            <DialogDescription className="mt-3 text-xs sm:text-sm leading-relaxed text-white/80">
+                                {selectedMarker.deskripsi}
+                            </DialogDescription>
                         )}
 
-                        {/* Audio Narration Controls */}
+                        {/* Audio Narration Control Box */}
                         {selectedMarker?.audio_url && (
-                            <div className="flex items-center gap-3 rounded-lg border border-purple-200 bg-purple-50 p-3 dark:border-purple-800 dark:bg-purple-900/30">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={toggleAudioNarration}
-                                    className="flex items-center gap-2 dark:border-purple-700 dark:text-purple-200"
-                                >
-                                    {isPlayingAudio ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                                    {isPlayingAudio ? 'Hentikan' : 'Putar'} Narasi
-                                </Button>
-                                <span className="text-sm text-purple-700 dark:text-purple-300">
-                                    {isPlayingAudio ? 'Memutar audio narasi...' : 'Audio narasi tersedia'}
-                                </span>
+                            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#d85c3e]/30 bg-[#d85c3e]/10 p-3.5">
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        size="sm"
+                                        onClick={toggleAudioNarration}
+                                        className="h-9 w-9 rounded-full bg-[#d85c3e] p-0 text-white hover:bg-[#b94830]"
+                                    >
+                                        {isPlayingAudio ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
+                                    </Button>
+                                    <div>
+                                        <p className="text-xs font-bold text-white">
+                                            {isPlayingAudio ? 'Memutar Narasi Audio...' : 'Dengarkan Narasi Audio'}
+                                        </p>
+                                        <p className="text-[10px] text-white/60">Panduan suara otomatis artefak</p>
+                                    </div>
+                                </div>
+                                {isPlayingAudio && (
+                                    <div className="flex items-center gap-0.5">
+                                        <span className="h-3 w-1 animate-pulse bg-[#f1b19b]" style={{ animationDelay: '0ms' }} />
+                                        <span className="h-4 w-1 animate-pulse bg-[#f1b19b]" style={{ animationDelay: '150ms' }} />
+                                        <span className="h-2 w-1 animate-pulse bg-[#f1b19b]" style={{ animationDelay: '300ms' }} />
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        <div className="flex justify-end">
-                            <Button onClick={() => setShowInfoDialog(false)}>Tutup</Button>
+                        <div className="mt-6 flex justify-end">
+                            <Button
+                                onClick={() => setShowInfoDialog(false)}
+                                className="rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white px-5"
+                            >
+                                Tutup Info
+                            </Button>
                         </div>
                     </DialogContent>
                 </Dialog>
 
                 {/* Visitor Guide Dialog */}
                 <Dialog open={showVisitorGuide} onOpenChange={setShowVisitorGuide}>
-                    <DialogContent className="border-border bg-background text-foreground z-[9999] flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:w-[92vw]">
-                        <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[#d85c3e] px-5 py-5 text-left sm:px-7 sm:py-6">
-                            <div className="absolute -top-14 -right-10 h-36 w-36 rounded-full border border-white/20" />
-                            <div className="absolute -top-7 -right-3 h-24 w-24 rounded-full border border-white/20" />
-                            <p className="relative text-[10px] font-bold tracking-[0.2em] text-white/70 uppercase">J-DiMS / orientasi</p>
-                            <DialogTitle className="relative mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
-                                Panduan Pengunjung
+                    <DialogContent className="border-white/15 bg-[#111417] text-[#f2efe8] z-[9999] flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] rounded-2xl">
+                        <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[#d85c3e] px-6 py-6 text-left">
+                            <p className="relative text-[10px] font-bold tracking-widest text-white/80 uppercase">J-DiMS / Orientasi 360°</p>
+                            <DialogTitle className="relative mt-1 text-2xl sm:text-3xl font-black text-white">
+                                Panduan Tur Virtual
                             </DialogTitle>
-                            <DialogDescription className="relative mt-1 max-w-lg text-xs text-white/75 sm:text-sm">
-                                Empat kontrol utama untuk menjelajahi ruang, koleksi, dan cerita museum.
+                            <DialogDescription className="relative mt-1 text-xs text-white/80">
+                                Gunakan kontrol di bawah untuk melihat sekeliling, mengeklik penanda artefak, dan mendengarkan suara pemandu.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-7 sm:py-3">
+                        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 space-y-4">
                             {[
                                 {
                                     icon: Hand,
-                                    title: 'Lihat sekeliling',
-                                    description: 'Geser panorama dengan jari atau mouse untuk mengubah arah pandang.',
+                                    title: 'Rotasi Arah Pandang 360°',
+                                    description: 'Geser layar atau drag mouse untuk memutar sudut pandang di dalam ruangan.',
                                 },
                                 {
                                     icon: ArrowRight,
-                                    title: 'Berpindah ruang',
-                                    description: 'Pilih penanda arah untuk melanjutkan kunjungan ke panorama berikutnya.',
+                                    title: 'Penanda Navigasi Ruangan',
+                                    description: 'Klik marker hijau berikon panah untuk melanjutkan tur ke ruangan berikutnya.',
                                 },
                                 {
                                     icon: MousePointerClick,
-                                    title: 'Buka informasi',
-                                    description: 'Pilih penanda koleksi untuk membaca detail dan mendengarkan narasi.',
+                                    title: 'Informasi & Artefak',
+                                    description: 'Klik marker biru berikon info untuk membuka detail penjelasan dan narasi audio.',
                                 },
                                 {
                                     icon: Play,
-                                    title: 'Putar media',
-                                    description: 'Pilih video satu kali untuk memutar atau menghentikan tayangan dan audionya.',
+                                    title: 'Pemutar Media Video',
+                                    description: 'Klik penanda video satu kali untuk memutar tayangan visual langsung di dalam ruangan.',
                                 },
                             ].map((item, index) => {
                                 const GuideIcon = item.icon;
                                 return (
-                                    <div
-                                        key={item.title}
-                                        className="border-border grid grid-cols-[2rem_2.75rem_1fr] items-center gap-3 border-b py-4 sm:grid-cols-[2.5rem_3rem_1fr] sm:gap-4"
-                                    >
-                                        <span className="font-mono text-xs text-[#b94830] dark:text-[#f1b19b]">
-                                            {String(index + 1).padStart(2, '0')}
+                                    <div key={item.title} className="flex items-start gap-4 border-b border-white/10 pb-3">
+                                        <span className="font-mono text-xs font-bold text-[#f1b19b] pt-1">
+                                            #{String(index + 1).padStart(2, '0')}
                                         </span>
-                                        <span className="border-border bg-muted flex h-11 w-11 items-center justify-center border text-[#b94830] sm:h-12 sm:w-12 dark:text-[#f1b19b]">
+                                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#d85c3e]/20 text-[#f1b19b]">
                                             <GuideIcon className="h-5 w-5" />
-                                        </span>
-                                        <span className="min-w-0">
-                                            <span className="text-foreground block text-sm font-semibold sm:text-base">{item.title}</span>
-                                            <span className="text-muted-foreground mt-1 block text-xs leading-relaxed sm:text-sm">
-                                                {item.description}
-                                            </span>
-                                        </span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-white">{item.title}</h4>
+                                            <p className="text-xs text-white/70 leading-relaxed">{item.description}</p>
+                                        </div>
                                     </div>
                                 );
                             })}
-
-                            <div className="border-border bg-border my-4 grid gap-px border sm:grid-cols-2">
-                                <div className="bg-muted flex items-start gap-3 p-4">
-                                    <ZoomIn className="mt-0.5 h-4 w-4 shrink-0 text-[#b94830] dark:text-[#f1b19b]" />
-                                    <p className="text-muted-foreground text-xs leading-relaxed">
-                                        Cubit layar, gulir mouse, atau gunakan tombol zoom untuk mendekati objek.
-                                    </p>
-                                </div>
-                                <div className="bg-muted flex items-start gap-3 p-4">
-                                    <Music className="mt-0.5 h-4 w-4 shrink-0 text-[#b94830] dark:text-[#f1b19b]" />
-                                    <p className="text-muted-foreground text-xs leading-relaxed">
-                                        Tombol musik di sisi kiri mengaktifkan atau mematikan audio ruangan.
-                                    </p>
-                                </div>
-                            </div>
                         </div>
 
-                        <div className="border-border bg-muted/50 grid shrink-0 gap-2 border-t p-4 sm:grid-cols-[1fr_auto] sm:px-7">
-                            <Button
-                                onClick={() => setShowVisitorGuide(false)}
-                                className="h-11 justify-between rounded-none bg-[#d85c3e] px-5 font-semibold text-white hover:bg-[#b94830]"
-                            >
-                                Mulai menjelajah
-                                <ArrowRight className="h-4 w-4" />
-                            </Button>
+                        <div className="flex items-center justify-between p-4 border-t border-white/10 bg-white/5">
                             <Button
                                 variant="ghost"
                                 onClick={handleCloseVisitorGuide}
-                                className="text-muted-foreground hover:bg-accent hover:text-foreground h-11 rounded-none px-5 text-xs"
+                                className="text-xs text-white/60 hover:text-white"
                             >
                                 Jangan tampilkan lagi
+                            </Button>
+                            <Button
+                                onClick={() => setShowVisitorGuide(false)}
+                                className="rounded-full bg-[#d85c3e] px-6 text-xs font-bold text-white hover:bg-[#b94830]"
+                            >
+                                Mulai Tur Virtual
                             </Button>
                         </div>
                     </DialogContent>
