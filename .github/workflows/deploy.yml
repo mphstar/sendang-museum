@@ -1,8 +1,8 @@
-name: Deploy via FTP
+name: Deploy via SSH
 
 # Menjalankan deploy otomatis setiap push ke main.
-# Build (composer + npm) dijalankan di runner GitHub, hasilnya (vendor/ + public/build/)
-# di-upload ke hosting via FTP. Server TIDAK perlu terminal/npm/composer.
+# Build (composer + npm) dijalankan di runner GitHub, hasilnya dikirim ke server
+# via rsync over SSH (hanya delta = cepat). Server TIDAK perlu terminal/npm/composer.
 
 on:
   push:
@@ -60,27 +60,58 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      # ---------- BERSIHKAN FILE YANG TIDAK BOLEH DI-UPLOAD ----------
-      - name: Remove unwanted files before upload
+      # ---------- BERSIHKAN FILE YANG TIDAK BOLEH TER-DEPLOY ----------
+      - name: Remove unwanted files before deploy
         run: |
           rm -f .env .env.backup .env.production
           rm -rf node_modules tests storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
-          # Beri izin eksekusi pada binary artisan/composer agar tetap berfungsi
-          chmod +x artisan
 
-      # ---------- UPLOAD VIA FTP ----------
-      - name: FTP Deploy
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      # ---------- SAFETY CHECK sebelum rsync ----------
+      # Pastikan DEPLOY_PATH adalah folder Laravel yang benar (ada file artisan).
+      # Kalau tidak, workflow berhenti — mencegah rsync ke folder yang salah.
+      - name: Verify DEPLOY_PATH is a Laravel project
+        uses: appleboy/ssh-action@v1
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT }}
-          protocol: ${{ secrets.FTP_PROTOCOL }} # ftp | ftps | sftp
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          exclude: |
-            **/.git*/**
-            **/node_modules/**
-            .env*
-            storage/**
-            public/storage/**
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd "${{ secrets.DEPLOY_PATH }}" || { echo "DEPLOY_PATH tidak ada"; exit 1; }
+            [ -f artisan ] || { echo "artisan tidak ditemukan — DEPLOY_PATH salah/tidak aman"; exit 1; }
+            echo "DEPLOY_PATH aman: $(pwd)"
+
+      # ---------- DEPLOY via rsync over SSH ----------
+      # burnett01/rsync-deployments tidak mendukung password, jadi pakai ssh key + rsync langsung
+      - name: Rsync deploy to server
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > /tmp/id_deploy
+          chmod 600 /tmp/id_deploy
+          rsync -avz --delete --mkpath \
+            -e "ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
+            --exclude=.env \
+            --exclude=storage/** \
+            --exclude=public/storage \
+            ./ ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
+
+      # ---------- POST-DEPLOY (artisan via SSH) ----------
+      - name: Run artisan maintenance/cache commands on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          command_timeout: 10m
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+            php artisan down --retry=5 || true
+            php artisan storage:link || true
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan up
