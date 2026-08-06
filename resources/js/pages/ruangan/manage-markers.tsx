@@ -132,6 +132,9 @@ export default function ManageMarkers() {
         const viewerConfig: any = {
           container: viewerRef.current!,
           panorama: resolvedPanoramaUrl,
+          rendererParameters: {
+            preserveDrawingBuffer: true,
+          },
           plugins: [
             [MarkersPlugin, {
               clickEventOnMarker: true,

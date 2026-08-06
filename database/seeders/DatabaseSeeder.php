@@ -18,8 +18,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::updateOrCreate(['email' => 'admin@jdims.test'], [
-            'name' => 'Admin J-DiMS',
+        User::updateOrCreate(['email' => 'admin@sendang.test'], [
+            'name' => 'Admin Sendang',
             'password' => Hash::make('password'),
         ]);
 
@@ -41,7 +41,7 @@ class DatabaseSeeder extends Seeder
             'longitude' => 113.7003,
             'address' => 'Kabupaten Jember, Jawa Timur',
             'opening_hours' => 'Akses digital 24 jam',
-            'contact_person' => 'Tim J-DiMS',
+            'contact_person' => 'Tim Sendang',
             'distance_from_city_center' => 'Pusat Kota Jember',
             'ticket_price' => 'Gratis',
             'google_maps_link' => 'https://www.google.com/maps?q=-8.1724,113.7003',

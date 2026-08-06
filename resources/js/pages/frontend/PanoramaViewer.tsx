@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Head, router, usePage } from '@inertiajs/react';
 import { GalleryModal } from '@/components/organisms/GalleryModal';
 import { useAppearance } from '@/hooks/use-appearance';
+import { appConfig } from '@/config/app';
 import { Viewer } from '@photo-sphere-viewer/core';
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import { DualFisheyeAdapter } from '@photo-sphere-viewer/dual-fisheye-adapter';
@@ -549,6 +550,9 @@ export default function PanoramaViewer() {
                 const viewerConfig: any = {
                     container: viewerRef.current,
                     panorama: resolvedPanoramaUrl,
+                    rendererParameters: {
+                        preserveDrawingBuffer: true,
+                    },
                     plugins: [
                         [
                             MarkersPlugin,
@@ -818,6 +822,13 @@ export default function PanoramaViewer() {
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
+            // Force explicit WebGL render call before copying pixels
+            if (viewer.renderer && viewer.renderer.renderer && viewer.renderer.scene && viewer.renderer.camera) {
+                try {
+                    viewer.renderer.renderer.render(viewer.renderer.scene, viewer.renderer.camera);
+                } catch (err) {}
+            }
+
             // Draw current 360 view
             ctx.drawImage(psvCanvas, 0, 0);
 
@@ -828,7 +839,7 @@ export default function PanoramaViewer() {
 
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 36px sans-serif';
-            ctx.fillText(`J-DiMS Virtual Visitor Souvenir`, padding, canvas.height - 70);
+            ctx.fillText(`${appConfig.name} Virtual Visitor Souvenir`, padding, canvas.height - 70);
 
             ctx.fillStyle = '#f1b19b';
             ctx.font = '22px sans-serif';
@@ -840,7 +851,7 @@ export default function PanoramaViewer() {
             ctx.fillText(dateStr, canvas.width - 450, canvas.height - 45);
 
             const link = document.createElement('a');
-            link.download = `J-DiMS_${activeRuangan.nama_ruangan.replace(/\s+/g, '_')}_Souvenir.png`;
+            link.download = `${appConfig.name}_${activeRuangan.nama_ruangan.replace(/\s+/g, '_')}_Souvenir.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
 
@@ -853,155 +864,158 @@ export default function PanoramaViewer() {
 
     return (
         <>
-            <Head title={`${activeRuangan.nama_ruangan} — ${museum.title} | J-DiMS`} />
+            <Head title={`${activeRuangan.nama_ruangan} — ${museum.title} | ${appConfig.name}`} />
 
-            <div className="museum-panorama relative h-screen w-screen overflow-hidden bg-[#0b0d0f]">
-                {/* Sci-Fi Glass HUD Header Bar */}
-                <div className="glass-panel absolute top-0 left-0 right-0 z-[70] flex items-center gap-2 border-b border-black/10 px-3 py-2.5 md:px-4 dark:border-white/10 bg-white/40 dark:bg-black/10">
-                    {/* Left: Burger Menu + Back Button */}
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {/* Burger Menu */}
-                        <button
-                            onClick={() => setShowSidebar(true)}
-                            className={`flex h-9 w-9 items-center justify-center rounded-full border border-[#d85c3e] bg-[#d85c3e] text-white shadow-md transition hover:bg-[#b94830] active:scale-95 ${
-                                showSidebar ? 'opacity-30 pointer-events-none' : 'opacity-100'
-                            }`}
-                            title="Menu Museum"
-                        >
-                            <Menu className="h-4 w-4" />
-                        </button>
-
+            <div className="museum-panorama relative h-screen w-screen overflow-hidden bg-gray-950">
+                {/* HUD Glass Header Bar */}
+                <header className="absolute top-0 left-0 right-0 z-[70] flex items-center justify-between gap-3 border-b border-black/10 dark:border-white/15 bg-white/85 dark:bg-[#0d1013]/85 px-3 py-2.5 md:px-6 backdrop-blur-xl shadow-lg dark:shadow-2xl transition-colors duration-300">
+                    {/* Left: Navigation & Room Info */}
+                    <div className="flex items-center gap-2.5 min-w-0">
                         {/* Back Button */}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => router.visit('/')}
-                            className="flex-shrink-0 rounded-full border border-black/15 bg-black/5 px-2.5 py-1.5 text-xs h-9 dark:border-white/15 dark:bg-white/5 text-gray-700 hover:bg-black/10 dark:text-white dark:hover:bg-white/15"
+                            className="flex-shrink-0 rounded-full border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/20 transition cursor-pointer h-9"
                         >
-                            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                            <ArrowLeft className="h-4 w-4 mr-1.5 text-[#d85c3e] dark:text-[#f1b19b]" />
                             <span className="hidden sm:inline">Kembali</span>
                         </Button>
-                    </div>
 
-                    {/* Center: Room Breadcrumb (flex-1 so it takes remaining space) */}
-                    <div className="min-w-0 flex-1 flex flex-col">
-                        <div className="flex items-center gap-1.5">
-                            <span className="museum-kicker text-[9px] tracking-widest text-[#f1b19b] truncate hidden sm:block">
-                                {museum.title}
-                            </span>
-                            /* Room pill + title use adaptive colors over the glass header */
-                            <span className="glass-pill rounded-full px-2 py-0.5 text-[9px] font-bold text-gray-700 dark:text-white/80">
-                                {allRuangan.findIndex((room: any) => room.id === activeRuangan.id) + 1}/{allRuangan.length}
-                            </span>
-                        </div>
-                        <h1 className="truncate text-sm font-bold text-gray-900 leading-tight dark:text-white">{activeRuangan.nama_ruangan}</h1>
-                    </div>
-
-                    {/* Right: HUD Control Ribbon */}
-                    <div className="flex scrollbar-none items-center gap-1.5 min-w-0 shrink overflow-x-auto md:overflow-visible">
-                        {/* Audio Guide (only if available) */}
-                        {activeRuangan?.audio_guide_url && (
-                            <button
-                                onClick={() => {
-                                    if (roomAudioRef.current) {
-                                        if (isPlayingRoomAudio) {
-                                            roomAudioRef.current.pause();
-                                            setIsPlayingRoomAudio(false);
-                                        } else {
-                                            roomAudioRef.current
-                                                .play()
-                                                .then(() => setIsPlayingRoomAudio(true))
-                                                .catch(() => {});
-                                        }
-                                    }
-                                }}
-                                className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                                    isPlayingRoomAudio
-                                        ? 'border-[#d85c3e] bg-[#d85c3e]/30 text-[#f1b19b] shadow-[0_0_15px_rgba(216,92,62,0.4)]'
-                                        : 'border-black/15 bg-black/5 text-gray-600 hover:bg-black/10 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/15 dark:hover:text-white'
-                                }`}
-                                title={isPlayingRoomAudio ? 'Matikan Audio Pemandu' : 'Putar Audio Pemandu'}
-                            >
-                                {isPlayingRoomAudio ? <Music2 className="h-3.5 w-3.5 animate-pulse" /> : <Music className="h-3.5 w-3.5" />}
-                            </button>
-                        )}
-
-                        {/* Auto-Rotate Toggle */}
-                        <button
-                            onClick={toggleAutoRotate}
-                            className={`flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition ${
-                                isAutoRotating
-                                    ? 'border-[#d85c3e] bg-[#d85c3e]/30 text-[#f1b19b] shadow-[0_0_15px_rgba(216,92,62,0.4)]'
-                                    : 'border-black/15 bg-black/5 text-gray-600 hover:bg-black/10 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/15 dark:hover:text-white'
-                            }`}
-                            title="Tur Otomatis (Autopilot 360)"
-                        >
-                            <RotateCw className={`h-3.5 w-3.5 ${isAutoRotating ? 'animate-spin' : ''}`} />
-                            <span className="hidden md:inline">{isAutoRotating ? 'Auto On' : 'Auto'}</span>
-                        </button>
-
-                        {/* Snapshot Camera — hidden on very small screens */}
-                        <button
-                            onClick={takeSouvenirSnapshot}
-                            className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full border border-black/15 bg-black/5 text-gray-700 hover:bg-black/10 transition cursor-pointer dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/15"
-                            title="Ambil Foto Kenangan 360°"
-                        >
-                            <Camera className="h-3.5 w-3.5 text-[#f1b19b]" />
-                        </button>
-
-                        {/* Gallery Button — hidden on very small screens */}
-                        <button
-                            onClick={() => setShowGallery(true)}
-                            className="hidden sm:flex h-9 items-center gap-1.5 rounded-full border border-black/15 bg-black/5 px-2.5 text-xs font-semibold text-gray-700 hover:bg-black/10 transition cursor-pointer dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/15"
-                            title="Galeri Foto & Video Museum"
-                        >
-                            <ImageIcon className="h-3.5 w-3.5 text-[#f1b19b]" />
-                            <span className="hidden lg:inline">Galeri</span>
-                            {museum.galleries && museum.galleries.length > 0 && (
-                                <span className="rounded-full bg-[#d85c3e] px-1.5 py-0.5 text-[9px] font-bold text-white">
-                                    {museum.galleries.length}
+                        <div className="min-w-0 flex flex-col justify-center">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#d85c3e] dark:text-[#f1b19b] truncate hidden sm:inline-block">
+                                    {museum.title}
                                 </span>
-                            )}
-                        </button>
-
-                        {/* Projection Mode Switcher */}
-                        <div className="flex items-center p-0.5 rounded-full border border-black/15 bg-black/5 dark:border-white/15 dark:bg-white/5">
-                            <button
-                                type="button"
-                                onClick={() => setProjectionMode('immersive')}
-                                className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold transition ${
-                                    projectionMode === 'immersive' ? 'bg-[#d85c3e] text-white' : 'text-gray-600 hover:text-gray-900 dark:text-white/60 dark:hover:text-white'
-                                }`}
-                                title="Mode 360 Imersif"
-                            >
-                                <Scan className="h-3 w-3" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setProjectionMode('planet')}
-                                className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold transition ${
-                                    projectionMode === 'planet' ? 'bg-[#d85c3e] text-white' : 'text-gray-600 hover:text-gray-900 dark:text-white/60 dark:hover:text-white'
-                                }`}
-                                title="Mode Globe / Little Planet"
-                            >
-                                <Circle className="h-3 w-3" />
-                            </button>
+                                <span className="rounded-full px-2 py-0.5 text-[9px] font-bold border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10 text-gray-700 dark:text-white/80">
+                                    Ruang {allRuangan.findIndex((room: any) => room.id === activeRuangan.id) + 1}/{allRuangan.length}
+                                </span>
+                            </div>
+                            <h1 className="truncate text-sm md:text-base font-bold text-gray-900 dark:text-white leading-tight">
+                                {activeRuangan.nama_ruangan}
+                            </h1>
                         </div>
                     </div>
 
-                    {/* Divider + Theme Toggle pinned outside the scrollable ribbon so it stays visible on mobile */}
-                    <span className="hidden md:block h-5 w-px mx-0.5 flex-shrink-0 bg-black/15 dark:bg-white/15" aria-hidden="true" />
-                    <button
-                        onClick={() => {
-                            const next = appearance === 'dark' ? 'light' : appearance === 'light' ? 'system' : 'dark';
-                            updateAppearance(next);
-                        }}
-                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-black/15 bg-black/5 text-gray-700 hover:bg-black/10 transition dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/15 dark:hover:text-white"
-                        title={`Tema: ${appearance === 'dark' ? 'Gelap' : appearance === 'light' ? 'Terang' : 'Sistem'} — klik untuk ganti`}
-                    >
-                        <ThemeIcon className="h-3.5 w-3.5 text-[#d85c3e] dark:text-[#f1b19b]" />
-                    </button>
-                </div>
+                    {/* Right: HUD Control Ribbon & Primary Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Tools Ribbon */}
+                        <div className="flex items-center gap-1.5 border-r border-black/10 dark:border-white/15 pr-2">
+                            {/* Audio Guide (only if available) */}
+                            {activeRuangan?.audio_guide_url && (
+                                <button
+                                    onClick={() => {
+                                        if (roomAudioRef.current) {
+                                            if (isPlayingRoomAudio) {
+                                                roomAudioRef.current.pause();
+                                                setIsPlayingRoomAudio(false);
+                                            } else {
+                                                roomAudioRef.current
+                                                    .play()
+                                                    .then(() => setIsPlayingRoomAudio(true))
+                                                    .catch(() => {});
+                                            }
+                                        }
+                                    }}
+                                    className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                                        isPlayingRoomAudio
+                                            ? 'border-[#d85c3e] bg-[#d85c3e]/20 text-[#d85c3e] dark:text-[#f1b19b] shadow-md'
+                                            : 'border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10 text-gray-700 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/20'
+                                    }`}
+                                    title={isPlayingRoomAudio ? 'Matikan Audio Pemandu' : 'Putar Audio Pemandu'}
+                                >
+                                    {isPlayingRoomAudio ? <Music2 className="h-4 w-4 animate-pulse" /> : <Music className="h-4 w-4" />}
+                                </button>
+                            )}
+
+                            {/* Auto-Rotate Toggle */}
+                            <button
+                                onClick={toggleAutoRotate}
+                                className={`flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition ${
+                                    isAutoRotating
+                                        ? 'border-[#d85c3e] bg-[#d85c3e] text-white shadow-md'
+                                        : 'border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10 text-gray-700 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/20'
+                                }`}
+                                title="Tur Otomatis (Autopilot 360)"
+                            >
+                                <RotateCw className={`h-3.5 w-3.5 ${isAutoRotating ? 'animate-spin' : ''}`} />
+                                <span className="hidden md:inline">{isAutoRotating ? 'Auto On' : 'Tur Otomatis'}</span>
+                            </button>
+
+                            {/* Snapshot Camera */}
+                            <button
+                                onClick={takeSouvenirSnapshot}
+                                className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10 text-gray-700 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/20 transition cursor-pointer"
+                                title="Ambil Foto Kenangan 360°"
+                            >
+                                <Camera className="h-4 w-4 text-[#d85c3e] dark:text-[#f1b19b]" />
+                            </button>
+
+                            {/* Gallery Button */}
+                            <button
+                                onClick={() => setShowGallery(true)}
+                                className="hidden sm:flex h-9 items-center gap-1.5 rounded-full border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10 px-3 text-xs font-semibold text-gray-700 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/20 transition cursor-pointer"
+                                title="Galeri Foto & Video Museum"
+                            >
+                                <ImageIcon className="h-3.5 w-3.5 text-[#d85c3e] dark:text-[#f1b19b]" />
+                                <span className="hidden lg:inline">Galeri</span>
+                                {museum.galleries && museum.galleries.length > 0 && (
+                                    <span className="rounded-full bg-[#d85c3e] px-1.5 py-0.2 text-[10px] font-bold text-white">
+                                        {museum.galleries.length}
+                                    </span>
+                                )}
+                            </button>
+
+                            {/* Projection Mode Switcher */}
+                            <div className="flex items-center p-0.5 rounded-full border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setProjectionMode('immersive')}
+                                    className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                                        projectionMode === 'immersive' ? 'bg-[#d85c3e] text-white shadow-sm' : 'text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white'
+                                    }`}
+                                    title="Mode 360 Imersif"
+                                >
+                                    <Scan className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setProjectionMode('planet')}
+                                    className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                                        projectionMode === 'planet' ? 'bg-[#d85c3e] text-white shadow-sm' : 'text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white'
+                                    }`}
+                                    title="Mode Globe / Little Planet"
+                                >
+                                    <Circle className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Theme Toggle Button */}
+                        <button
+                            onClick={() => {
+                                const next = appearance === 'dark' ? 'light' : appearance === 'light' ? 'system' : 'dark';
+                                updateAppearance(next);
+                            }}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/10 text-gray-700 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/20 transition cursor-pointer"
+                            title={`Tema: ${appearance === 'dark' ? 'Gelap' : appearance === 'light' ? 'Terang' : 'Sistem'} — klik untuk ganti`}
+                        >
+                            <ThemeIcon className="h-4 w-4 text-[#d85c3e] dark:text-[#f1b19b]" />
+                        </button>
+
+                        {/* Primary Burger Menu Button */}
+                        <button
+                            onClick={() => setShowSidebar(true)}
+                            className={`flex h-9 items-center gap-2 rounded-full border border-[#d85c3e] bg-[#d85c3e] px-3.5 text-xs font-bold text-white shadow-md transition hover:bg-[#b94830] active:scale-95 cursor-pointer ${
+                                showSidebar ? 'opacity-30 pointer-events-none' : 'opacity-100'
+                            }`}
+                            title="Menu Utama Museum"
+                        >
+                            <Menu className="h-4 w-4" />
+                            <span className="hidden sm:inline">Menu</span>
+                        </button>
+                    </div>
+                </header>
 
                 {/* Camera Orientation Compass Widget (Top Right) */}
                 <div className="pointer-events-none fixed top-20 right-6 z-[65] hidden md:flex items-center gap-3 glass-pill px-3 py-1.5 rounded-full border border-white/10 text-xs font-mono text-white/70">
@@ -1104,7 +1118,7 @@ export default function PanoramaViewer() {
                 <Dialog open={showVisitorGuide} onOpenChange={setShowVisitorGuide}>
                     <DialogContent className="border-black/10 bg-white text-gray-900 z-[9999] flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] rounded-2xl dark:border-white/15 dark:bg-[#111417] dark:text-[#f2efe8]">
                         <DialogHeader className="relative shrink-0 overflow-hidden border-b border-white/15 bg-[#d85c3e] px-6 py-6 text-left">
-                            <p className="relative text-[10px] font-bold tracking-widest text-white/80 uppercase">J-DiMS / Orientasi 360°</p>
+                            <p className="relative text-[10px] font-bold tracking-widest text-white/80 uppercase">{appConfig.name} / Orientasi 360°</p>
                             <DialogTitle className="relative mt-1 text-2xl sm:text-3xl font-black text-white">
                                 Panduan Tur Virtual
                             </DialogTitle>

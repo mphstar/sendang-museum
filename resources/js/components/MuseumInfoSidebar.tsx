@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { appConfig } from '@/config/app';
 import MDEditor from '@uiw/react-md-editor';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -43,7 +44,7 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
     const [showLocationMap, setShowLocationMap] = useState(false);
     const [showRoomList, setShowRoomList] = useState(false);
     const [showMuseumInfo, setShowMuseumInfo] = useState(false);
-    const [showUtilities, setShowUtilities] = useState(false);
+    const [showUtilities, setShowUtilities] = useState(true);
 
     const hasCoordinates = museum.latitude && museum.longitude;
 
@@ -96,13 +97,13 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                 initial={false}
                 animate={{ x: isOpen ? 0 : '-100%' }}
                 transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                className="fixed inset-y-0 left-0 z-[120] flex w-[min(92vw,390px)] flex-col overflow-hidden border-r border-black/10 bg-white text-gray-900 shadow-2xl dark:border-white/15 dark:bg-[#111417] dark:text-[#f2efe8]"
+                className="fixed inset-y-0 left-0 z-[120] flex w-[min(92vw,390px)] flex-col overflow-hidden border-r border-black/15 dark:border-white/15 bg-white dark:bg-[#111417] text-gray-900 dark:text-[#f2efe8] shadow-2xl transition-colors duration-300"
                 style={{ paddingTop: 'env(safe-area-inset-top)' }}
                 aria-label="Menu eksplorasi museum"
             >
-                <div className="flex items-center justify-between border-b border-black/10 px-5 py-4 dark:border-white/15">
+                <div className="flex items-center justify-between border-b border-black/15 dark:border-white/15 px-5 py-4">
                     <div>
-                        <p className="museum-kicker">J-DiMS / field guide</p>
+                        <p className="museum-kicker">{appConfig.name} / field guide</p>
                         <h2 className="mt-1 text-lg font-semibold tracking-tight">Menu Museum</h2>
                     </div>
                     <Button
@@ -141,48 +142,7 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                         </div>
                     </div>
 
-                    <div className="mt-7 flex items-center justify-between">
-                        <div>
-                            <p className="museum-kicker">Index ruang</p>
-                            <p className="mt-1 text-sm text-gray-500 dark:text-white/60">Pilih titik kunjungan berikutnya</p>
-                        </div>
-                        <Layers3 className="h-5 w-5 text-gray-400 dark:text-white/35" />
-                    </div>
-
-                    <div className="mt-3 divide-y divide-black/10 border-y border-black/15 dark:divide-white/10 dark:border-white/15">
-                        {allRuangan.map((room, index) => {
-                            const isActive = room.id === activeRuangan?.id;
-                            return (
-                                <button
-                                    key={room.id}
-                                    type="button"
-                                    onClick={() => {
-                                        if (!isActive) onRoomChange(room.id);
-                                    }}
-                                    className={`group flex w-full items-center gap-3 py-4 text-left transition-colors ${
-                                        isActive ? 'text-gray-900 dark:text-white' : 'text-gray-600 hover:text-gray-900 dark:text-white/55 dark:hover:text-white'
-                                    }`}
-                                    aria-current={isActive ? 'location' : undefined}
-                                >
-                                    <span className={`font-mono text-xs ${isActive ? 'text-[#d85c3e] dark:text-[#f1b19b]' : 'text-gray-400 dark:text-white/30'}`}>
-                                        {String(index + 1).padStart(2, '0')}
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm font-semibold">{room.nama_ruangan}</span>
-                                        <span className="mt-1 block text-[11px] text-gray-400 dark:text-white/35">
-                                            {room.markers?.length || 0} titik interaktif{room.is_main ? ' · titik awal' : ''}
-                                        </span>
-                                    </span>
-                                    <ArrowUpRight
-                                        className={`h-4 w-4 transition-transform ${
-                                            isActive ? 'text-[#d85c3e] dark:text-[#f1b19b]' : 'text-gray-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 dark:text-white/20'
-                                        }`}
-                                    />
-                                </button>
-                            );
-                        })}
-                    </div>
-
+                    {/* Alat Kunjungan (Positioned at top & open by default) */}
                     <button
                         type="button"
                         onClick={() => setShowUtilities((value) => !value)}
@@ -226,10 +186,53 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    {/* Index Ruang */}
+                    <div className="mt-7 flex items-center justify-between">
+                        <div>
+                            <p className="museum-kicker">Index ruang</p>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-white/60">Pilih titik kunjungan berikutnya</p>
+                        </div>
+                        <Layers3 className="h-5 w-5 text-gray-400 dark:text-white/35" />
+                    </div>
+
+                    <div className="mt-3 divide-y divide-black/10 border-y border-black/15 dark:divide-white/10 dark:border-white/15">
+                        {allRuangan.map((room, index) => {
+                            const isActive = room.id === activeRuangan?.id;
+                            return (
+                                <button
+                                    key={room.id}
+                                    type="button"
+                                    onClick={() => {
+                                        if (!isActive) onRoomChange(room.id);
+                                    }}
+                                    className={`group flex w-full items-center gap-3 py-4 text-left transition-colors ${
+                                        isActive ? 'text-gray-900 dark:text-white' : 'text-gray-600 hover:text-gray-900 dark:text-white/55 dark:hover:text-white'
+                                    }`}
+                                    aria-current={isActive ? 'location' : undefined}
+                                >
+                                    <span className={`font-mono text-xs ${isActive ? 'text-[#d85c3e] dark:text-[#f1b19b]' : 'text-gray-400 dark:text-white/30'}`}>
+                                        {String(index + 1).padStart(2, '0')}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-sm font-semibold">{room.nama_ruangan}</span>
+                                        <span className="mt-1 block text-[11px] text-gray-400 dark:text-white/35">
+                                            {room.markers?.length || 0} titik interaktif{room.is_main ? ' · titik awal' : ''}
+                                        </span>
+                                    </span>
+                                    <ArrowUpRight
+                                        className={`h-4 w-4 transition-transform ${
+                                            isActive ? 'text-[#d85c3e] dark:text-[#f1b19b]' : 'text-gray-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 dark:text-white/20'
+                                        }`}
+                                    />
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="border-t border-black/15 bg-black/5 px-5 py-4 dark:border-white/15 dark:bg-black/15" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
-                    <p className="text-[10px] tracking-[0.18em] text-gray-400 uppercase dark:text-white/35">Jember Digital Museum System</p>
+                    <p className="text-[10px] tracking-[0.18em] text-gray-400 uppercase dark:text-white/35">{appConfig.fullName}</p>
                     <p className="mt-1 truncate text-xs text-gray-500 dark:text-white/65">Geser, pilih penanda, dan ikuti cerita.</p>
                 </div>
             </motion.aside>
@@ -278,6 +281,13 @@ export default function MuseumInfoSidebar({ museum, allRuangan, activeRuangan, o
                                         rehypePlugins={[rehypeRaw]}
                                         style={{ backgroundColor: 'transparent', color: 'inherit' }}
                                         className="!bg-transparent !text-inherit"
+                                        components={{
+                                            strong: ({ children }) => <strong className="font-extrabold text-[#d85c3e] dark:text-[#f1b19b]">{children}</strong>,
+                                            b: ({ children }) => <b className="font-extrabold text-[#d85c3e] dark:text-[#f1b19b]">{children}</b>,
+                                            p: ({ children }) => <p className="text-gray-700 dark:text-white/80 leading-relaxed mb-3">{children}</p>,
+                                            ul: ({ children }) => <ul className="my-2 list-disc space-y-1 pl-5 text-gray-700 dark:text-white/80">{children}</ul>,
+                                            li: ({ children }) => <li className="pl-1 text-gray-700 dark:text-white/80">{children}</li>,
+                                        }}
                                     />
                                 </div>
                             </div>

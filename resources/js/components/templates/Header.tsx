@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import React from 'react';
+import { appConfig } from '@/config/app';
 import { Logo } from '../atoms/Logo';
 import type { SectionData } from '../organisms/Section';
 
@@ -41,7 +42,7 @@ export function Header({ active, onJump, sections, brand, subtitle, backHref, ac
                         </Link>
                     )}
                     <div className="flex min-w-0 flex-col">
-                        <span className="museum-kicker text-[9px] tracking-widest text-[#d85c3e] dark:text-[#f1b19b]">J-DiMS / Digital Museum</span>
+                        <span className="museum-kicker text-[9px] tracking-widest text-[#d85c3e] dark:text-[#f1b19b]">{appConfig.brandKicker}</span>
                         <span className="truncate text-xs font-semibold tracking-wide text-gray-900 dark:text-white">{label}</span>
                     </div>
                 </div>
@@ -85,7 +86,7 @@ export function Header({ active, onJump, sections, brand, subtitle, backHref, ac
                     >
                         <Logo />
                         <div className="flex flex-col">
-                            <span className="museum-kicker text-[10px] tracking-widest text-[#d85c3e] dark:text-[#f1b19b]">J-DiMS / Jember Digital Museum System</span>
+                            <span className="museum-kicker text-[10px] tracking-widest text-[#d85c3e] dark:text-[#f1b19b]">{appConfig.name} / {appConfig.fullName}</span>
                             <span className="text-sm font-semibold tracking-wide text-gray-900 dark:text-white group-hover:opacity-90">{label}</span>
                         </div>
                     </a>

@@ -1,4 +1,5 @@
 import { Logo } from '@/components/atoms/Logo';
+import { appConfig } from '@/config/app';
 import { ArrowNav } from '@/components/molecules/ArrowNav';
 import { NavDots } from '@/components/molecules/NavDots';
 import { ScrollProgress } from '@/components/molecules/ScrollProgress';
@@ -104,6 +105,7 @@ function convertToSectionData(
                             source={item.content}
                             rehypePlugins={[rehypeRaw]}
                             style={{ backgroundColor: 'transparent', color: 'rgba(255, 255, 255, 0.9)' }}
+                            className="!bg-transparent !text-inherit"
                             components={{
                                 strong: ({ children }) => <strong className="font-extrabold text-[#f1b19b]">{children}</strong>,
                                 b: ({ children }) => <b className="font-extrabold text-[#f1b19b]">{children}</b>,
@@ -449,7 +451,7 @@ export default function MuseumView({ museum, setting }: Props) {
                         <Logo />
                     </div>
                     <div className="flex flex-col items-center gap-1">
-                        <span className="museum-kicker text-xs tracking-widest text-[#f1b19b]">J-DiMS / Digital Museum</span>
+                        <span className="museum-kicker text-xs tracking-widest text-[#f1b19b]">{appConfig.brandKicker}</span>
                         <span className="text-xl font-bold tracking-tight text-white">Memuat Koleksi Museum...</span>
                     </div>
                     <div className="h-1.5 w-72 overflow-hidden rounded-full bg-white/10">
@@ -492,7 +494,7 @@ export default function MuseumView({ museum, setting }: Props) {
 
     return (
         <>
-            <Head title="Koleksi Museum Digital Jember — J-DiMS" />
+            <Head title={`Koleksi Museum Digital Jember — ${appConfig.name}`} />
 
             <div className="relative min-h-screen w-screen overflow-hidden bg-[#f4f5f7] dark:bg-[#0b0d0f] text-gray-900 dark:text-[#f2efe8] transition-colors duration-300">
                 {/* Header Navigation */}
@@ -500,7 +502,7 @@ export default function MuseumView({ museum, setting }: Props) {
                     active={viewMode === 'row' ? currentSlide : active}
                     onJump={scrollToIndex}
                     sections={SECTIONS}
-                    brand="J-DiMS"
+                    brand={appConfig.name}
                     subtitle={`${museum.length} destinasi museum digital (${viewMode === 'grid' ? 'Katalog Grid' : 'Pameran Museum'})`}
                     actions={headerActions}
                 />
@@ -782,10 +784,14 @@ export default function MuseumView({ museum, setting }: Props) {
                                         <MDEditor.Markdown
                                             source={selectedMuseumModal.content}
                                             rehypePlugins={[rehypeRaw]}
-                                            style={{ backgroundColor: 'transparent' }}
+                                            style={{ backgroundColor: 'transparent', color: 'inherit' }}
+                                            className="!bg-transparent !text-inherit"
                                             components={{
                                                 strong: ({ children }) => <strong className="font-extrabold text-[#d85c3e] dark:text-[#f1b19b]">{children}</strong>,
                                                 b: ({ children }) => <b className="font-extrabold text-[#d85c3e] dark:text-[#f1b19b]">{children}</b>,
+                                                p: ({ children }) => <p className="text-gray-800 dark:text-white/90 leading-relaxed mb-3">{children}</p>,
+                                                ul: ({ children }) => <ul className="my-2 list-disc space-y-1 pl-5 text-gray-800 dark:text-white/80">{children}</ul>,
+                                                li: ({ children }) => <li className="pl-1 text-gray-800 dark:text-white/90">{children}</li>,
                                             }}
                                         />
                                     </div>

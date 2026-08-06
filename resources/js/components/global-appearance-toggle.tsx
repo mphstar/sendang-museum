@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAppearance } from '@/hooks/use-appearance';
+import { router } from '@inertiajs/react';
 import { Check, Monitor, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -10,9 +11,7 @@ const options = [
     { value: 'system' as const, label: 'Ikuti sistem', icon: Monitor },
 ];
 
-// Komponen ini dirender DI LUAR provider Inertia (saudara dari <App>),
-// jadi tidak bisa pakai usePage(). Deteksi halaman panorama lewat URL.
-const isPanoramaPage = () => typeof window !== 'undefined' && /^\/museum\//.test(window.location.pathname);
+const isPanoramaPage = () => typeof window !== 'undefined' && /^\/museum\/\d+/.test(window.location.pathname);
 
 export function GlobalAppearanceToggle() {
     const { appearance, updateAppearance } = useAppearance();
@@ -20,13 +19,17 @@ export function GlobalAppearanceToggle() {
 
     // Hide on panorama viewer — it has its own inline theme toggle in the header
     const [hidden, setHidden] = useState(isPanoramaPage);
+
     useEffect(() => {
         const check = () => setHidden(isPanoramaPage());
+        check();
+
         window.addEventListener('popstate', check);
-        window.addEventListener('inertia:navigate', check);
+        const unbindInertia = router.on('navigate', check);
+
         return () => {
             window.removeEventListener('popstate', check);
-            window.removeEventListener('inertia:navigate', check);
+            unbindInertia();
         };
     }, []);
 

@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { appConfig } from '@/config/app';
+
 export function Logo() {
     return (
         <div className="flex gap-2">
@@ -11,7 +13,7 @@ export function Logo() {
                 className="flex h-8 w-8 items-center justify-center rounded-xl shadow-cyan-500/30"
                 aria-label="Logo"
             >
-                <img className="aspect-square h-8 w-8" src="/images/website/logo/logo.png" alt="J-DiMS Logo" />
+                <img className="aspect-square h-8 w-8" src="/images/website/logo/logo.png" alt={`${appConfig.name} Logo`} />
             </motion.div>
         </div>
     );
