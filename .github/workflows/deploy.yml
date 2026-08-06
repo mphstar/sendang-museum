@@ -103,6 +103,7 @@ jobs:
             ./ u133764157@${{ secrets.SSH_HOST }}:/home/u133764157/domains/sendang.j-dims.com/public_html/
 
       # ---------- POST-DEPLOY (artisan via SSH) ----------
+      # Membuat .env jika belum ada, generate APP_KEY, buat DB sqlite, lalu migrate + cache.
       - name: Run artisan maintenance/cache commands on server
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -112,8 +113,11 @@ jobs:
             ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
             'set -e
              cd /home/u133764157/domains/sendang.j-dims.com/public_html
-             mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+             mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache database
              chmod -R 775 storage bootstrap/cache
+             if [ ! -f .env ]; then cp .env.example .env; fi
+             if ! grep -q "^APP_KEY=base64" .env; then php artisan key:generate --force; fi
+             if [ "$(grep -oP "^DB_CONNECTION=\K.*" .env)" = "sqlite" ] && [ ! -f database/database.sqlite ]; then touch database/database.sqlite; fi
              php artisan down --retry=5 || true
              php artisan storage:link || true
              php artisan migrate --force || true
