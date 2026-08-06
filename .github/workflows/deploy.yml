@@ -69,17 +69,21 @@ jobs:
           rm -rf storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
           rm -rf node_modules tests
 
-      # ---------- DEPLOY via rsync over SSH ----------
+      # ---------- DEPLOY via rsync over SSH (password auth) ----------
+      # burnett01/rsync-deployments tidak mendukung password, jadi pakai sshpass langsung
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
       - name: Rsync deploy to server
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -avz --delete --exclude=.env --exclude=storage/** --exclude=public/storage
-          path: ./
-          remote_path: ${{ secrets.DEPLOY_PATH }}
-          remote_host: ${{ secrets.SSH_HOST }}
-          remote_user: ${{ secrets.SSH_USERNAME }}
-          remote_password: ${{ secrets.SSH_PASSWORD }}
-          remote_port: ${{ secrets.SSH_PORT }}
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sshpass -p "$SSH_PASSWORD" rsync -avz --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
+            --exclude=.env \
+            --exclude=storage/** \
+            --exclude=public/storage \
+            ./ ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
 
       # ---------- POST-DEPLOY (artisan via SSH) ----------
       - name: Run artisan maintenance/cache commands on server
