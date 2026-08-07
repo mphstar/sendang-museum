@@ -35,9 +35,9 @@ jobs:
               set -e
               cd /home/u133764157/domains/sendang.j-dims.com/public_html
 
-              echo \"--> Pulling latest code from git...\"
-              git remote set-url origin https://github.com/mphstar/sendang-museum.git 2>/dev/null || true
-              git pull https://github.com/mphstar/sendang-museum.git main
+              echo \"--> Fetching latest code...\"
+              git -c credential.helper= -c url.\"https://\".insteadOf= fetch https://github.com/mphstar/sendang-museum.git main
+              git reset --hard FETCH_HEAD
 
               if command -v composer &> /dev/null; then
                 echo \"--> Updating composer dependencies...\"
