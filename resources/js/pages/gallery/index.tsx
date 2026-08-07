@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Film, Image as ImageIcon, Plus, Trash2, Upload, Sparkles, Pencil } from 'lucide-react';
+import { ArrowLeft, Film, Image as ImageIcon, Plus, Trash2, Upload, Sparkles, Pencil, Eye } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ export default function GalleryManagement({ museum, galleries }: Props) {
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
+    const [previewItem, setPreviewItem] = useState<GalleryItem | null>(null);
     const [uploading, setUploading] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -219,11 +220,14 @@ export default function GalleryManagement({ museum, galleries }: Props) {
                                 key={item.id}
                                 className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md"
                             >
-                                <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                                <div 
+                                    onClick={() => setPreviewItem(item)}
+                                    className="relative aspect-video w-full overflow-hidden bg-slate-900 cursor-pointer"
+                                >
                                     {item.media_type === 'video' && !item.thumbnail_url && !item.media_url.includes('youtube') && !item.media_url.includes('youtu.be') ? (
                                         <video
                                             src={item.media_url}
-                                            className="h-full w-full object-cover"
+                                            className="h-full w-full object-cover group-hover:scale-105 transition-transform"
                                             muted
                                             preload="metadata"
                                         />
@@ -238,6 +242,11 @@ export default function GalleryManagement({ museum, galleries }: Props) {
                                             }}
                                         />
                                     )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold text-gray-900 shadow-md backdrop-blur-sm">
+                                            <Eye className="h-3.5 w-3.5 text-[#d85c3e]" /> Preview
+                                        </span>
+                                    </div>
                                     <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-background/90 backdrop-blur-md px-2.5 py-1 text-[10px] font-bold shadow-sm">
                                         {item.media_type === 'video' ? (
                                             <>
@@ -259,25 +268,36 @@ export default function GalleryManagement({ museum, galleries }: Props) {
                                         </p>
                                     )}
 
-                                    <div className="mt-auto pt-4 flex items-center justify-end gap-2 border-t">
+                                    <div className="mt-auto pt-4 flex items-center justify-between border-t gap-2">
                                         <Button
-                                            variant="outline"
+                                            variant="ghost"
                                             size="sm"
-                                            onClick={() => openEdit(item)}
-                                            className="h-8 gap-1 text-xs"
+                                            onClick={() => setPreviewItem(item)}
+                                            className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground"
                                         >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                            Edit
+                                            <Eye className="h-3.5 w-3.5" />
+                                            Preview
                                         </Button>
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() => handleDelete(item.id)}
-                                            className="h-8 gap-1 text-xs"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                            Hapus
-                                        </Button>
+                                        <div className="flex items-center gap-1.5">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(item)}
+                                                className="h-8 gap-1 text-xs"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => handleDelete(item.id)}
+                                                className="h-8 gap-1 text-xs"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                                Hapus
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -390,6 +410,63 @@ export default function GalleryManagement({ museum, galleries }: Props) {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Media Preview Modal */}
+            {previewItem && (
+                <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>
+                    <DialogContent className="max-w-3xl overflow-hidden p-0 border-black/10 dark:border-white/15 bg-white dark:bg-[#111417] text-gray-900 dark:text-white rounded-2xl">
+                        <DialogHeader className="p-4 border-b flex flex-row items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="rounded-full bg-[#d85c3e]/10 px-2.5 py-0.5 text-xs font-bold text-[#d85c3e] uppercase">
+                                    {previewItem.media_type === 'video' ? 'Video' : 'Foto / Gambar'}
+                                </span>
+                                <DialogTitle className="text-base font-bold truncate max-w-md">
+                                    {previewItem.title}
+                                </DialogTitle>
+                            </div>
+                        </DialogHeader>
+
+                        <div className="p-4 bg-slate-950 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-hidden">
+                            {previewItem.media_type === 'video' ? (
+                                (() => {
+                                    const match = previewItem.media_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+                                    if (match) {
+                                        return (
+                                            <iframe
+                                                src={`https://www.youtube.com/embed/${match[1]}?autoplay=1`}
+                                                className="w-full aspect-video rounded-xl"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                            />
+                                        );
+                                    }
+                                    return (
+                                        <video
+                                            src={previewItem.media_url}
+                                            controls
+                                            autoPlay
+                                            className="w-full max-h-[70vh] rounded-xl object-contain"
+                                        />
+                                    );
+                                })()
+                            ) : (
+                                <img
+                                    src={previewItem.media_url}
+                                    alt={previewItem.title}
+                                    className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-lg"
+                                />
+                            )}
+                        </div>
+
+                        {previewItem.description && (
+                            <div className="p-4 border-t text-xs text-muted-foreground leading-relaxed bg-muted/30">
+                                <p className="font-semibold text-foreground mb-1">Deskripsi:</p>
+                                <p className="whitespace-pre-line">{previewItem.description}</p>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
+            )}
         </AppLayout>
     );
 }
