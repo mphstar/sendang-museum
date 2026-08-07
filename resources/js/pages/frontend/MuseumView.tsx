@@ -716,62 +716,85 @@ export default function MuseumView({ museum, setting }: Props) {
                 {/* Selected Museum Detail Modal */}
                 {selectedMuseumModal && (
                     <Dialog open={!!selectedMuseumModal} onOpenChange={() => setSelectedMuseumModal(null)}>
-                        <DialogContent className="z-[130] flex h-[78dvh] max-h-[calc(100vh-7rem)] w-[calc(100vw-1.5rem)] max-w-3xl flex-col overflow-hidden border-black/10 dark:border-white/15 bg-white dark:bg-[#111417] p-0 text-gray-900 dark:text-[#f2efe8] rounded-2xl top-[calc(50%+1.5rem)] shadow-2xl">
-                            <DialogHeader className="relative h-48 w-full overflow-hidden p-6 flex flex-col justify-end bg-black">
+                        <DialogContent className="z-[130] flex max-h-[88vh] w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden border-black/10 dark:border-white/15 bg-white dark:bg-[#111417] p-0 text-gray-900 dark:text-[#f2efe8] rounded-3xl shadow-2xl transition-all">
+                            {/* Header Section with Image Overlay */}
+                            <DialogHeader className="relative h-44 sm:h-52 w-full overflow-hidden p-6 flex flex-col justify-end bg-slate-900">
                                 {selectedMuseumModal.background_url && (
                                     <img
                                         src={selectedMuseumModal.background_url}
                                         alt={selectedMuseumModal.title}
-                                        className="absolute inset-0 h-full w-full object-cover opacity-60"
+                                        className="absolute inset-0 h-full w-full object-cover opacity-65 scale-105"
                                     />
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#111417] via-black/40 to-transparent" />
-                                <div className="relative z-10">
-                                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                                        <span className="museum-kicker text-xs text-[#d85c3e] dark:text-[#f1b19b]">Detail Koleksi Museum</span>
+                                <div className="relative z-10 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="museum-kicker text-xs font-bold text-[#d85c3e] dark:text-[#f1b19b] tracking-wider uppercase">
+                                            Detail Koleksi Museum
+                                        </span>
                                         {selectedMuseumModal.label && (
-                                            <span className="glass-pill rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white uppercase bg-black/60">
+                                            <span className="glass-pill rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white uppercase bg-black/60 backdrop-blur-md">
                                                 {selectedMuseumModal.label}
                                             </span>
                                         )}
                                     </div>
-                                    <DialogTitle className="text-2xl sm:text-3xl font-black text-white">
+                                    <DialogTitle className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                                         {selectedMuseumModal.title}
                                     </DialogTitle>
                                     {selectedMuseumModal.subtitle && (
-                                        <p className="text-xs text-white/90 mt-1">{selectedMuseumModal.subtitle}</p>
+                                        <p className="text-xs sm:text-sm text-white/90 font-medium line-clamp-1">
+                                            {selectedMuseumModal.subtitle}
+                                        </p>
                                     )}
                                 </div>
                             </DialogHeader>
 
-                            <div className="scrollbar-none overflow-y-auto p-6 space-y-6">
+                            {/* Modal Content Body */}
+                            <div className="scrollbar-none overflow-y-auto p-5 sm:p-6 space-y-5 flex-1">
                                 {/* Extra Meta Info Grid */}
-                                {(selectedMuseumModal.opening_hours || selectedMuseumModal.ticket_price || selectedMuseumModal.address || selectedMuseumModal.contact_person) && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-xs">
+                                {(selectedMuseumModal.opening_hours || selectedMuseumModal.ticket_price || selectedMuseumModal.address || selectedMuseumModal.distance_from_city_center) && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-xs">
                                         {selectedMuseumModal.opening_hours && (
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+                                                    <Clock className="h-4 w-4" />
+                                                </div>
                                                 <div>
-                                                    <span className="text-gray-500 dark:text-white/50 block text-[10px]">Jam Operasional</span>
-                                                    <span className="font-medium text-gray-900 dark:text-white">{selectedMuseumModal.opening_hours}</span>
+                                                    <span className="text-gray-500 dark:text-white/50 block text-[10px] uppercase tracking-wider">Jam Operasional</span>
+                                                    <span className="font-semibold text-gray-900 dark:text-white">{selectedMuseumModal.opening_hours}</span>
                                                 </div>
                                             </div>
                                         )}
                                         {selectedMuseumModal.ticket_price && (
-                                            <div className="flex items-center gap-2">
-                                                <Ticket className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+                                                    <Ticket className="h-4 w-4" />
+                                                </div>
                                                 <div>
-                                                    <span className="text-gray-500 dark:text-white/50 block text-[10px]">Harga Tiket Masuk</span>
-                                                    <span className="font-medium text-gray-900 dark:text-white">{selectedMuseumModal.ticket_price}</span>
+                                                    <span className="text-gray-500 dark:text-white/50 block text-[10px] uppercase tracking-wider">Tiket Masuk</span>
+                                                    <span className="font-semibold text-gray-900 dark:text-white">{selectedMuseumModal.ticket_price}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {selectedMuseumModal.distance_from_city_center && (
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+                                                    <Compass className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 dark:text-white/50 block text-[10px] uppercase tracking-wider">Jarak dari Pusat Kota</span>
+                                                    <span className="font-semibold text-gray-900 dark:text-white">{selectedMuseumModal.distance_from_city_center}</span>
                                                 </div>
                                             </div>
                                         )}
                                         {selectedMuseumModal.address && (
-                                            <div className="flex items-center gap-2 sm:col-span-2">
-                                                <MapPin className="h-4 w-4 text-[#d85c3e] dark:text-[#f1b19b]" />
+                                            <div className="flex items-center gap-2.5 sm:col-span-2">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#d85c3e]/10 text-[#d85c3e] flex-shrink-0">
+                                                    <MapPin className="h-4 w-4" />
+                                                </div>
                                                 <div>
-                                                    <span className="text-gray-500 dark:text-white/50 block text-[10px]">Alamat Lengkap</span>
-                                                    <span className="font-medium text-gray-900 dark:text-white">{selectedMuseumModal.address}</span>
+                                                    <span className="text-gray-500 dark:text-white/50 block text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                                                    <span className="font-semibold text-gray-900 dark:text-white leading-snug">{selectedMuseumModal.address}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -780,7 +803,7 @@ export default function MuseumView({ museum, setting }: Props) {
 
                                 {/* Markdown Description */}
                                 {selectedMuseumModal.content && (
-                                    <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-800 dark:text-white/90">
+                                    <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed text-gray-800 dark:text-white/90">
                                         <MDEditor.Markdown
                                             source={selectedMuseumModal.content}
                                             rehypePlugins={[rehypeRaw]}
@@ -799,7 +822,7 @@ export default function MuseumView({ museum, setting }: Props) {
                             </div>
 
                             {/* Modal Footer Actions */}
-                            <div className="flex items-center justify-between p-4 border-t border-black/10 dark:border-white/10 bg-gray-50 dark:bg-white/5">
+                            <div className="flex items-center justify-between p-4 sm:px-6 border-t border-black/10 dark:border-white/10 bg-gray-50 dark:bg-white/5 gap-3">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -808,7 +831,7 @@ export default function MuseumView({ museum, setting }: Props) {
                                         setSelectedMuseumModal(null);
                                         setMapMuseum(target);
                                     }}
-                                    className="gap-2 text-xs border-gray-800 dark:border-white/20 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                                    className="gap-2 text-xs border-gray-300 dark:border-white/20 text-gray-800 dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-xl cursor-pointer"
                                 >
                                     <MapPin className="h-3.5 w-3.5 text-[#d85c3e] dark:text-[#f1b19b]" />
                                     <span>Lihat Peta Lokasi</span>
@@ -816,7 +839,7 @@ export default function MuseumView({ museum, setting }: Props) {
 
                                 <Link
                                     href={`/museum/${selectedMuseumModal.id}`}
-                                    className="inline-flex items-center gap-2 rounded-full bg-[#d85c3e] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#b94830]"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-[#d85c3e] hover:bg-[#b94830] px-5 py-2.5 text-xs font-bold text-white transition shadow-md shadow-[#d85c3e]/20"
                                 >
                                     <span>Jelajahi Penuh 360°</span>
                                     <MoveRight className="h-4 w-4" />
