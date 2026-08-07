@@ -278,10 +278,11 @@ export default function PanoramaViewer() {
     }, []);
 
     // Generate markers for Photo Sphere Viewer
-    const generateMarkers = useCallback(() => {
-        if (!activeMarkers || activeMarkers.length === 0) return [];
+    const generateMarkers = useCallback((markersList?: any[]) => {
+        const targetMarkers = markersList || activeRuangan?.markers || activeMarkers || [];
+        if (!targetMarkers || targetMarkers.length === 0) return [];
 
-        return activeMarkers
+        return targetMarkers
             .map((marker: any) => {
                 const baseConfig = {
                     id: marker.id.toString(),
@@ -289,6 +290,7 @@ export default function PanoramaViewer() {
                         yaw: parseFloat(marker.position_yaw || '0'),
                         pitch: parseFloat(marker.position_pitch || '0'),
                     },
+                    anchor: 'center center',
                     tooltip: {
                         content: marker.judul,
                         position: 'top center',
@@ -301,15 +303,15 @@ export default function PanoramaViewer() {
 
                 if (marker.type === 'navigation') {
                     const navElement = document.createElement('div');
-                    navElement.className = 'w-12 h-12 mx-auto relative';
+                    navElement.className = 'w-12 h-12 relative flex items-center justify-center';
                     navElement.setAttribute('role', 'button');
                     navElement.setAttribute('tabindex', '0');
                     navElement.style.touchAction = 'manipulation';
-                    navElement.style.cssText = `cursor: pointer;`;
+                    navElement.style.cssText = `cursor: pointer; width: 48px; height: 48px;`;
 
                     navElement.innerHTML = `
           <div style="width: 100%; height: 100%; background: #10b981; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5); display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite;">
-            <svg style="width: 18px; height: 18px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+            <svg style="width: 20px; height: 20px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
               <path d="M9 6l6 6-6 6"/>
             </svg>
           </div>
@@ -320,86 +322,128 @@ export default function PanoramaViewer() {
                         element: navElement,
                         anchor: 'center center',
                     };
-                } else {
-                    if (marker.media_type === 'video' && marker.media_url) {
-                        const rawUrl = marker.media_url;
-                        const isStringUrl = typeof rawUrl === 'string' && rawUrl.length > 0;
-                        let mediaUrl: string | null = null;
-                        if (isStringUrl) {
-                            try {
-                                mediaUrl = new URL(rawUrl, window.location.origin).href;
-                            } catch {
-                                mediaUrl = null;
-                            }
+                } else if (marker.media_type === 'video' && marker.media_url) {
+                    const rawUrl = marker.media_url;
+                    const isStringUrl = typeof rawUrl === 'string' && rawUrl.length > 0;
+                    let mediaUrl: string | null = null;
+                    if (isStringUrl) {
+                        try {
+                            mediaUrl = new URL(rawUrl, window.location.origin).href;
+                        } catch {
+                            mediaUrl = rawUrl;
                         }
+                    }
 
-                        if (!mediaUrl) {
-                            const fallbackEl = document.createElement('div');
-                            fallbackEl.className = 'w-12 h-12 mx-auto relative';
-                            fallbackEl.setAttribute('role', 'button');
-                            fallbackEl.setAttribute('tabindex', '0');
-                            fallbackEl.style.touchAction = 'manipulation';
-                            fallbackEl.style.cssText = `cursor: pointer;`;
-                            fallbackEl.innerHTML = `
-              <div style="width: 100%; height: 100%; background: #ef4444; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5); display: flex; align-items: center; justify-content: center;">
-                <svg style="width: 18px; height: 18px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-                  <path d="M12 9v4m0 4h.01"/>
-                  <circle cx="12" cy="12" r="10"/>
-                </svg>
-              </div>
-            `;
-                            return {
-                                ...baseConfig,
-                                element: fallbackEl,
-                                anchor: 'center center',
-                                data: { ...baseConfig.data, clickAction: 'showInfo' },
-                            } as any;
-                        }
-
-                        const width = Number(marker.media_width) || 240;
-                        const height = Number(marker.media_height) || 240;
+                    if (!mediaUrl) {
+                        const fallbackEl = document.createElement('div');
+                        fallbackEl.className = 'w-12 h-12 relative flex items-center justify-center';
+                        fallbackEl.setAttribute('role', 'button');
+                        fallbackEl.setAttribute('tabindex', '0');
+                        fallbackEl.style.touchAction = 'manipulation';
+                        fallbackEl.style.cssText = `cursor: pointer; width: 48px; height: 48px;`;
+                        fallbackEl.innerHTML = `
+          <div style="width: 100%; height: 100%; background: #ef4444; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5); display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 20px; height: 20px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+              <path d="M12 9v4m0 4h.01"/>
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+          </div>
+        `;
                         return {
                             ...baseConfig,
-                            videoLayer: mediaUrl,
-                            size: { width, height },
-                            style: { cursor: 'pointer' },
+                            element: fallbackEl,
                             anchor: 'center center',
-                            tooltip: 'Putar Video',
-                            chromaKey: {
-                                enabled: true,
-                                color: '#00FF00',
-                                similarity: 0.4,
-                                smoothness: 0.1,
-                            },
-                            data: { ...baseConfig.data, clickAction: 'toggleVideoInfoPlay' },
+                            data: { ...baseConfig.data, clickAction: 'showInfo' },
                         } as any;
-                    } else {
-                        const infoElement = document.createElement('div');
-                        infoElement.className = 'w-12 h-12 mx-auto relative';
-                        infoElement.setAttribute('role', 'button');
-                        infoElement.setAttribute('tabindex', '0');
-                        infoElement.style.touchAction = 'manipulation';
-                        infoElement.style.cssText = `cursor: pointer;`;
+                    }
 
-                        infoElement.innerHTML = `
-            <div style="width: 100%; height: 100%; background: #3b82f6; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5); display: flex; align-items: center; justify-content: center;">
-              <svg style="width: 18px; height: 18px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 16v-4m0-4h.01"/>
-              </svg>
-            </div>
-          `;
+                    const width = Number(marker.media_width) || 240;
+                    const height = Number(marker.media_height) || 240;
+                    return {
+                        ...baseConfig,
+                        videoLayer: mediaUrl,
+                        size: { width, height },
+                        style: { cursor: 'pointer' },
+                        anchor: 'center center',
+                        tooltip: 'Putar Video',
+                        chromaKey: {
+                            enabled: true,
+                            color: '#00FF00',
+                            similarity: 0.4,
+                            smoothness: 0.1,
+                        },
+                        data: { ...baseConfig.data, clickAction: 'toggleVideoInfoPlay' },
+                    } as any;
+                } else if (marker.media_type === 'image' && marker.media_url) {
+                    const rawUrl = marker.media_url;
+                    const isStringUrl = typeof rawUrl === 'string' && rawUrl.length > 0;
+                    let mediaUrl: string | null = null;
+                    if (isStringUrl) {
+                        try {
+                            mediaUrl = new URL(rawUrl, window.location.origin).href;
+                        } catch {
+                            mediaUrl = rawUrl;
+                        }
+                    }
 
+                    if (mediaUrl) {
+                        const width = Number(marker.media_width) || 100;
+                        const height = Number(marker.media_height) || 100;
                         return {
                             ...baseConfig,
-                            element: infoElement,
+                            image: mediaUrl,
+                            size: { width, height },
                             anchor: 'center center',
+                            className: 'info-image-marker',
+                            data: { ...baseConfig.data, clickAction: 'showInfo' },
                         };
                     }
+
+                    const infoElement = document.createElement('div');
+                    infoElement.className = 'w-12 h-12 relative flex items-center justify-center';
+                    infoElement.setAttribute('role', 'button');
+                    infoElement.setAttribute('tabindex', '0');
+                    infoElement.style.touchAction = 'manipulation';
+                    infoElement.style.cssText = `cursor: pointer; width: 48px; height: 48px;`;
+                    infoElement.innerHTML = `
+          <div style="width: 100%; height: 100%; background: #3b82f6; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5); display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 20px; height: 20px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4m0-4h.01"/>
+            </svg>
+          </div>
+        `;
+                    return {
+                        ...baseConfig,
+                        element: infoElement,
+                        anchor: 'center center',
+                    };
+                } else {
+                    const infoElement = document.createElement('div');
+                    infoElement.className = 'w-12 h-12 relative flex items-center justify-center';
+                    infoElement.setAttribute('role', 'button');
+                    infoElement.setAttribute('tabindex', '0');
+                    infoElement.style.touchAction = 'manipulation';
+                    infoElement.style.cssText = `cursor: pointer; width: 48px; height: 48px;`;
+
+                    infoElement.innerHTML = `
+          <div style="width: 100%; height: 100%; background: #3b82f6; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5); display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 20px; height: 20px; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4m0-4h.01"/>
+            </svg>
+          </div>
+        `;
+
+                    return {
+                        ...baseConfig,
+                        element: infoElement,
+                        anchor: 'center center',
+                    };
                 }
             })
             .filter((marker: any) => marker !== null);
-    }, []);
+    }, [activeRuangan, activeMarkers]);
 
     // Handle hash and popstate navigation
     useEffect(() => {
@@ -538,7 +582,7 @@ export default function PanoramaViewer() {
                     await new Promise((resolve) => setTimeout(resolve, 50));
                 }
 
-                const generatedMarkers = generateMarkers();
+                const generatedMarkers = generateMarkers(activeRuangan?.markers);
 
                 let resolvedPanoramaUrl = activeRuangan.panorama_url;
                 try {

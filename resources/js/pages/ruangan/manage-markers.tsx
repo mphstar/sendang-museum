@@ -304,6 +304,7 @@ export default function ManageMarkers() {
         yaw: parseFloat(marker.position_yaw || '0'), 
         pitch: parseFloat(marker.position_pitch || '0') 
       },
+      anchor: 'center center',
       tooltip: {
         content: marker.judul,
         position: 'top center'
@@ -335,6 +336,7 @@ export default function ManageMarkers() {
           ...baseConfig,
           image: marker.media_url,
           size: { width, height },
+          anchor: 'center center',
           className: 'custom-image-marker'
         };
       }
@@ -413,6 +415,7 @@ export default function ManageMarkers() {
         return {
           id: tempMarkerId,
           position: position,
+          anchor: 'center center',
           html: `
             <div class="temp-image-marker" style="
               width: ${previewWidth}px; 
@@ -464,6 +467,7 @@ export default function ManageMarkers() {
     return {
       id: tempMarkerId,
       position: position,
+      anchor: 'center center',
       html: `
         <div class="temp-default-marker" style="
           width: 35px; 
@@ -606,6 +610,7 @@ export default function ManageMarkers() {
           yaw: parseFloat(marker.position_yaw || '0'), 
           pitch: parseFloat(marker.position_pitch || '0') 
         },
+        anchor: 'center center',
         html: `<div style="
           width: 32px; 
           height: 32px; 
@@ -705,6 +710,7 @@ export default function ManageMarkers() {
       const newTempMarker = {
         id: tempMarker,
         position: position,
+        anchor: 'center center',
         html: `<div style="
           width: 32px; 
           height: 32px; 
@@ -748,6 +754,7 @@ export default function ManageMarkers() {
       const newTempMarker = {
         id: tempMarkerId,
         position: position,
+        anchor: 'center center',
         html: `<div style="
           width: 32px; 
           height: 32px; 

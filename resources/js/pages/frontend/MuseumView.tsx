@@ -796,34 +796,6 @@ export default function MuseumView({ museum, setting }: Props) {
                                         />
                                     </div>
                                 )}
-
-                                {/* Available Rooms List */}
-                                <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#d85c3e] dark:text-[#f1b19b] mb-3">
-                                        Daftar Ruangan Panorama 360° ({selectedMuseumModal.ruangan?.length || 0})
-                                    </h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {selectedMuseumModal.ruangan?.map((ruang) => (
-                                            <Link
-                                                key={ruang.id}
-                                                href={`/museum/${selectedMuseumModal.id}#ruangan-${ruang.id}`}
-                                                className="glass-card flex items-center justify-between p-3 rounded-xl border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:border-[#d85c3e] transition group"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <Compass className="h-4 w-4 text-[#d85c3e]" />
-                                                    <span className="text-xs font-semibold text-gray-900 dark:text-white group-hover:text-[#d85c3e] dark:group-hover:text-[#f1b19b]">
-                                                        {ruang.nama_ruangan}
-                                                    </span>
-                                                </div>
-                                                {ruang.is_main && (
-                                                    <span className="rounded-full bg-[#d85c3e]/20 px-2 py-0.5 text-[10px] font-bold text-[#d85c3e] dark:text-[#f1b19b]">
-                                                        Utama
-                                                    </span>
-                                                )}
-                                            </Link>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
 
                             {/* Modal Footer Actions */}
