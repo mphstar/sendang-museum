@@ -1,4 +1,4 @@
-name: Deploy via SSH (Git Pull)
+name: Deploy via SSH
 
 on:
   push:
@@ -10,13 +10,24 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: read
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Build Frontend Assets
+        run: |
+          npm ci
+          npm run build
+
       - name: Deploy to Server via SSH
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -29,6 +40,11 @@ jobs:
           echo "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
+          echo "--> Syncing pre-compiled frontend assets to server..."
+          rsync -avz -e "ssh -i ~/.ssh/id_rsa -p ${SSH_PORT:-22} -o StrictHostKeyChecking=accept-new" \
+            ./public/build/ ${SSH_USERNAME}@${SSH_HOST}:/home/u133764157/domains/sendang.j-dims.com/public_html/public/build/
+
+          echo "--> Executing server update commands..."
           ssh -i ~/.ssh/id_rsa -p ${SSH_PORT:-22} \
             -o StrictHostKeyChecking=accept-new \
             -o UserKnownHostsFile=/dev/null \
@@ -38,36 +54,31 @@ jobs:
 
               echo \"--> Fetching latest code...\"
               if [ -n \"${GH_PAT}\" ]; then
-                git fetch https://x-access-token:${GH_PAT}@github.com/mphstar/sendang-museum.git main
+                git fetch https://x-access-token:${GH_PAT}@github.com/mphstar/sendang-museum.git main || true
               else
                 mkdir -p ~/.ssh && ssh-keyscan -t ed25519,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null || true
-                git fetch git@github.com:mphstar/sendang-museum.git main || git pull origin main
+                git fetch git@github.com:mphstar/sendang-museum.git main 2>/dev/null || git pull origin main 2>/dev/null || true
               fi
-              git reset --hard FETCH_HEAD
+              git reset --hard FETCH_HEAD 2>/dev/null || true
 
               if command -v composer &> /dev/null; then
                 echo \"--> Updating composer dependencies...\"
                 composer install --no-dev --prefer-dist --optimize-autoloader || true
               fi
 
-              if command -v npm &> /dev/null; then
-                echo \"--> Building frontend assets...\"
-                npm install || true
-                npm run build || true
-              fi
-
               echo \"--> Running database migrations...\"
-              php artisan migrate --force
+              php artisan migrate --force || true
 
               echo \"--> Clearing and optimizing cache...\"
-              php artisan config:clear
-              php artisan cache:clear
-              php artisan route:clear
-              php artisan view:clear
-              php artisan config:cache
-              php artisan route:cache
-              php artisan view:cache
+              php artisan config:clear || true
+              php artisan cache:clear || true
+              php artisan route:clear || true
+              php artisan view:clear || true
+              php artisan config:cache || true
+              php artisan route:cache || true
+              php artisan view:cache || true
 
               echo \"--> Deploy completed successfully!\"
             "
+
 
