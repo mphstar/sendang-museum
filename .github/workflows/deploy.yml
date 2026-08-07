@@ -36,7 +36,8 @@ jobs:
               cd /home/u133764157/domains/sendang.j-dims.com/public_html
 
               echo \"--> Fetching latest code...\"
-              git -c credential.helper= -c url.\"https://\".insteadOf= fetch https://github.com/mphstar/sendang-museum.git main
+              git remote set-url origin https://github.com/mphstar/sendang-museum.git 2>/dev/null || true
+              git -c 'credential.helper=' fetch origin main
               git reset --hard FETCH_HEAD
 
               if command -v composer &> /dev/null; then
