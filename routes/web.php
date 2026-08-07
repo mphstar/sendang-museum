@@ -17,6 +17,41 @@ Route::get('/glitchtip/error', function () {
     throw new Exception('My first GlitchTip error!');
 });
 
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Http\Request;
+
+// Helper API endpoint to run artisan commands via URL
+Route::get('/artisan/migrate-fresh', function (Request $request) {
+    $secretKey = env('ARTISAN_KEY', 'sendang-secret-123');
+
+    if ($request->query('key') !== $secretKey) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Unauthorized: Invalid or missing security key.',
+        ], 403);
+    }
+
+    try {
+        Artisan::call('migrate:fresh', [
+            '--seed' => true,
+            '--force' => true,
+        ]);
+
+        $output = Artisan::output();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Database migrated fresh and seeded successfully!',
+            'output' => array_values(array_filter(explode("\n", str_replace("\r", "", $output)))),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+});
+
 Route::get('/', [FrontendController::class, 'index'])->name('home');
 
 // Public panorama viewer routes
