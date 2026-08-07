@@ -1,9 +1,4 @@
-name: Deploy via SSH
-
-# Setiap push ke main:
-# 1. composer install + npm run build dijalankan di runner GitHub
-# 2. hasil (source + vendor + public/build) dikirim ke server via rsync over SSH
-# Server tidak perlu terminal/npm/composer. Hanya butuh SSH key.
+name: Deploy via SSH (Git Pull)
 
 on:
   push:
@@ -22,107 +17,49 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      # ---------- BACKEND (composer) ----------
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mbstring, intl, pdo, pdo_sqlite, fileinfo, bcmath, gd, dom, zip
-          coverage: none
-
-      - name: Get composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-
-
-      - name: Install composer dependencies (production)
-        run: |
-          composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-          composer dump-autoload --no-dev --classmap-authoritative
-
-      # ---------- FRONTEND (npm) ----------
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Build frontend assets
-        run: npm run build
-
-      # ---------- BERSIHKAN FILE YANG TIDAK BOLEH TER-DEPLOY ----------
-      - name: Remove unwanted files before deploy
-        run: |
-          rm -f .env .env.backup .env.production
-          rm -rf node_modules tests
-          rm -rf storage/framework/cache/data/* storage/framework/sessions/* storage/framework/views/* storage/logs/*.log
-
-      # ---------- SAFETY CHECK sebelum rsync ----------
-      # DEPLOY_PATH harus ada; boleh kosong (first deploy) ATAU berisi project Laravel.
-      # Pakai ssh bawaan sistem (terbukti berhasil, sama seperti rsync).
-      - name: Verify DEPLOY_PATH is safe
+      - name: Deploy to Server via SSH
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
         run: |
-          echo "$SSH_KEY" > /tmp/id_deploy
-          chmod 600 /tmp/id_deploy
-          ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} \
-            -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-            'cd /home/u133764157/domains/sendang.j-dims.com/public_html || { echo "DEPLOY_PATH tidak ada"; exit 1; }
-             if [ -f artisan ]; then echo "DEPLOY_PATH aman (project Laravel): $(pwd)";
-             elif [ -z "$(ls -A .)" ]; then echo "DEPLOY_PATH kosong (first deploy): $(pwd)";
-             else echo "DEPLOY_PATH berisi file tapi artisan tidak ditemukan — STOP"; exit 1; fi'
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-      # ---------- DEPLOY via rsync over SSH ----------
-      - name: Rsync deploy to server
-        env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-        run: |
-          echo "$SSH_KEY" > /tmp/id_deploy
-          chmod 600 /tmp/id_deploy
-          rsync -avz --delete \
-            -e "ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null" \
-            --exclude=.env \
-            --exclude=storage/** \
-            --exclude=public/storage \
-            --exclude=./.htaccess \
-            ./ u133764157@${{ secrets.SSH_HOST }}:/home/u133764157/domains/sendang.j-dims.com/public_html/
+          ssh -i ~/.ssh/id_rsa -p ${SSH_PORT:-22} \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=/dev/null \
+            ${SSH_USERNAME}@${SSH_HOST} '
+              set -e
+              cd /home/u133764157/domains/sendang.j-dims.com/public_html
 
-      # ---------- POST-DEPLOY (artisan via SSH) ----------
-      # Membuat .env jika belum ada, generate APP_KEY, buat DB sqlite, lalu migrate + cache.
-      - name: Run artisan maintenance/cache commands on server
-        env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-        run: |
-          ssh -i /tmp/id_deploy -p ${{ secrets.SSH_PORT }} \
-            -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
-            'set -e
-             cd /home/u133764157/domains/sendang.j-dims.com/public_html
-             mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache database
-             chmod -R 775 storage bootstrap/cache
-             if [ ! -f .env ]; then cp .env.example .env; fi
-             if ! grep -q "^APP_KEY=base64" .env; then php artisan key:generate --force; fi
-             if [ "$(grep -oP "^DB_CONNECTION=\K.*" .env)" = "sqlite" ] && [ ! -f database/database.sqlite ]; then touch database/database.sqlite; fi
-             php artisan down --retry=5 || true
-             php artisan storage:link || true
-             php artisan migrate --force || true
-             php artisan config:cache || true
-             php artisan route:cache || true
-             php artisan view:cache || true
-             php artisan up || true'
+              echo "--> Pulling latest code from git..."
+              git pull origin main
+
+              if command -v composer &> /dev/null; then
+                echo "--> Updating composer dependencies..."
+                composer install --no-dev --prefer-dist --optimize-autoloader || true
+              fi
+
+              if command -v npm &> /dev/null; then
+                echo "--> Building frontend assets..."
+                npm install || true
+                npm run build || true
+              fi
+
+              echo "--> Running database migrations..."
+              php artisan migrate --force
+
+              echo "--> Clearing and optimizing cache..."
+              php artisan config:clear
+              php artisan cache:clear
+              php artisan route:clear
+              php artisan view:clear
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+
+              echo "--> Deploy completed successfully!"
+            '
