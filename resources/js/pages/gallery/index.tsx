@@ -53,6 +53,18 @@ export default function GalleryManagement({ museum, galleries }: Props) {
         order: 0,
     });
 
+    const getThumbnailUrl = (item: GalleryItem) => {
+        if (item.thumbnail_url) return item.thumbnail_url;
+        if (item.media_type === 'image') return item.media_url;
+        if (item.media_type === 'video') {
+            const match = item.media_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+            if (match) {
+                return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+            }
+        }
+        return item.media_url;
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -72,7 +84,11 @@ export default function GalleryManagement({ museum, galleries }: Props) {
 
             const result = await response.json();
             if (response.ok && result.url) {
-                setData('media_url', result.url);
+                setData(prev => ({
+                    ...prev,
+                    media_url: result.url,
+                    thumbnail_url: prev.media_type === 'image' ? result.url : prev.thumbnail_url
+                }));
                 toast.success('Media berhasil diunggah!');
             } else {
                 toast.error(result.error || 'Gagal mengunggah file.');
@@ -88,7 +104,7 @@ export default function GalleryManagement({ museum, galleries }: Props) {
         e.preventDefault();
         if (editingItem) {
             router.post(
-                route('museum.gallery.update', editingItem.id),
+                route('museum.gallery.update', [museum.id, editingItem.id]),
                 { ...data },
                 {
                     onSuccess: () => {
@@ -114,7 +130,7 @@ export default function GalleryManagement({ museum, galleries }: Props) {
     const handleDelete = (id: number) => {
         if (!confirm('Apakah Anda yakin ingin menghapus media galeri ini?')) return;
         router.post(
-            route('museum.gallery.delete', id),
+            route('museum.gallery.delete', [museum.id, id]),
             {},
             {
                 onSuccess: () => toast.success('Media galeri telah dihapus.'),
@@ -203,16 +219,25 @@ export default function GalleryManagement({ museum, galleries }: Props) {
                                 key={item.id}
                                 className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md"
                             >
-                                <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                                    <img
-                                        src={item.thumbnail_url || item.media_url}
-                                        alt={item.title}
-                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).src =
-                                                'https://images.unsplash.com/photo-1565008447742-97f6f38c985c?auto=format&fit=crop&w=800&q=80';
-                                        }}
-                                    />
+                                <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                                    {item.media_type === 'video' && !item.thumbnail_url && !item.media_url.includes('youtube') && !item.media_url.includes('youtu.be') ? (
+                                        <video
+                                            src={item.media_url}
+                                            className="h-full w-full object-cover"
+                                            muted
+                                            preload="metadata"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={getThumbnailUrl(item)}
+                                            alt={item.title}
+                                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src =
+                                                    'https://images.unsplash.com/photo-1565008447742-97f6f38c985c?auto=format&fit=crop&w=800&q=80';
+                                            }}
+                                        />
+                                    )}
                                     <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-background/90 backdrop-blur-md px-2.5 py-1 text-[10px] font-bold shadow-sm">
                                         {item.media_type === 'video' ? (
                                             <>

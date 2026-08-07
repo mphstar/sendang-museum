@@ -24,6 +24,25 @@ class GalleryController extends Controller
         }
     }
 
+    private function resolveThumbnailUrl(string $mediaType, string $mediaUrl, ?string $thumbnailUrl): ?string
+    {
+        if (!empty($thumbnailUrl)) {
+            return $thumbnailUrl;
+        }
+
+        if ($mediaType === 'image') {
+            return $mediaUrl;
+        }
+
+        if ($mediaType === 'video') {
+            if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $mediaUrl, $matches)) {
+                return 'https://img.youtube.com/vi/' . $matches[1] . '/hqdefault.jpg';
+            }
+        }
+
+        return $thumbnailUrl;
+    }
+
     public function index(Museum $museum)
     {
         $museum->load('galleries');
@@ -44,19 +63,21 @@ class GalleryController extends Controller
             'order' => 'nullable|integer',
         ]);
 
+        $thumbnail = $this->resolveThumbnailUrl($validated['media_type'], $validated['media_url'], $validated['thumbnail_url'] ?? null);
+
         $museum->galleries()->create([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'media_type' => $validated['media_type'],
             'media_url' => $validated['media_url'],
-            'thumbnail_url' => $validated['thumbnail_url'] ?? null,
+            'thumbnail_url' => $thumbnail,
             'order' => $validated['order'] ?? 0,
         ]);
 
         return redirect()->back()->with('success', 'Media galeri berhasil ditambahkan.');
     }
 
-    public function update(Request $request, Gallery $gallery)
+    public function update(Request $request, Museum $museum, Gallery $gallery)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -67,19 +88,21 @@ class GalleryController extends Controller
             'order' => 'nullable|integer',
         ]);
 
+        $thumbnail = $this->resolveThumbnailUrl($validated['media_type'], $validated['media_url'], $validated['thumbnail_url'] ?? null);
+
         $gallery->update([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'media_type' => $validated['media_type'],
             'media_url' => $validated['media_url'],
-            'thumbnail_url' => $validated['thumbnail_url'] ?? null,
+            'thumbnail_url' => $thumbnail,
             'order' => $validated['order'] ?? $gallery->order,
         ]);
 
         return redirect()->back()->with('success', 'Media galeri berhasil diperbarui.');
     }
 
-    public function destroy(Gallery $gallery)
+    public function destroy(Museum $museum, Gallery $gallery)
     {
         $this->deleteFileIfExists($gallery->media_url);
         $this->deleteFileIfExists($gallery->thumbnail_url);
