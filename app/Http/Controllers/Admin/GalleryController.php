@@ -77,7 +77,7 @@ class GalleryController extends Controller
         return redirect()->back()->with('success', 'Media galeri berhasil ditambahkan.');
     }
 
-    public function update(Request $request, Museum $museum, Gallery $gallery)
+    public function update(Request $request, Gallery $gallery)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -102,7 +102,7 @@ class GalleryController extends Controller
         return redirect()->back()->with('success', 'Media galeri berhasil diperbarui.');
     }
 
-    public function destroy(Museum $museum, Gallery $gallery)
+    public function destroy(Gallery $gallery)
     {
         $this->deleteFileIfExists($gallery->media_url);
         $this->deleteFileIfExists($gallery->thumbnail_url);

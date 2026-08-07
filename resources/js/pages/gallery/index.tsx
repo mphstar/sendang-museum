@@ -105,7 +105,7 @@ export default function GalleryManagement({ museum, galleries }: Props) {
         e.preventDefault();
         if (editingItem) {
             router.post(
-                route('museum.gallery.update', [museum.id, editingItem.id]),
+                route('museum.gallery.update', editingItem.id),
                 { ...data },
                 {
                     onSuccess: () => {
@@ -131,7 +131,7 @@ export default function GalleryManagement({ museum, galleries }: Props) {
     const handleDelete = (id: number) => {
         if (!confirm('Apakah Anda yakin ingin menghapus media galeri ini?')) return;
         router.post(
-            route('museum.gallery.delete', [museum.id, id]),
+            route('museum.gallery.delete', id),
             {},
             {
                 onSuccess: () => toast.success('Media galeri telah dihapus.'),
