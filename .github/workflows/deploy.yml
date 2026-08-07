@@ -23,6 +23,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_rsa
@@ -31,28 +32,29 @@ jobs:
           ssh -i ~/.ssh/id_rsa -p ${SSH_PORT:-22} \
             -o StrictHostKeyChecking=accept-new \
             -o UserKnownHostsFile=/dev/null \
-            ${SSH_USERNAME}@${SSH_HOST} '
+            ${SSH_USERNAME}@${SSH_HOST} "
               set -e
               cd /home/u133764157/domains/sendang.j-dims.com/public_html
 
-              echo "--> Pulling latest code from git..."
-              git pull origin main
+              echo \"--> Pulling latest code from git...\"
+              git remote set-url origin git@github.com:mphstar/sendang-museum.git 2>/dev/null || true
+              git pull origin main 2>/dev/null || git -c url.\"https://x-access-token:${GH_TOKEN}@github.com/\".insteadOf=\"https://github.com/\" pull origin main
 
               if command -v composer &> /dev/null; then
-                echo "--> Updating composer dependencies..."
+                echo \"--> Updating composer dependencies...\"
                 composer install --no-dev --prefer-dist --optimize-autoloader || true
               fi
 
               if command -v npm &> /dev/null; then
-                echo "--> Building frontend assets..."
+                echo \"--> Building frontend assets...\"
                 npm install || true
                 npm run build || true
               fi
 
-              echo "--> Running database migrations..."
+              echo \"--> Running database migrations...\"
               php artisan migrate --force
 
-              echo "--> Clearing and optimizing cache..."
+              echo \"--> Clearing and optimizing cache...\"
               php artisan config:clear
               php artisan cache:clear
               php artisan route:clear
@@ -61,5 +63,6 @@ jobs:
               php artisan route:cache
               php artisan view:cache
 
-              echo "--> Deploy completed successfully!"
-            '
+              echo \"--> Deploy completed successfully!\"
+            "
+
