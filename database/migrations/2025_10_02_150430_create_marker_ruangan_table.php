@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('judul');
             $table->text('deskripsi')->nullable();
             $table->enum('type', ['info', 'navigation'])->default('info');
-            $table->foreignId('navigation_target')->nullable()->constrained('ruangan');
+            $table->foreignId('navigation_target')->nullable()->constrained('ruangan')->nullOnDelete();
             $table->string('media_url')->nullable();
             $table->enum('media_type', ['image', 'video'])->nullable();
             $table->integer('media_width')->default(100);
