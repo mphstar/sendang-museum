@@ -23,6 +23,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          GH_PAT: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_rsa
@@ -36,8 +37,7 @@ jobs:
               cd /home/u133764157/domains/sendang.j-dims.com/public_html
 
               echo \"--> Fetching latest code...\"
-              git remote set-url origin https://github.com/mphstar/sendang-museum.git 2>/dev/null || true
-              git -c 'credential.helper=' fetch origin main
+              git fetch https://${GH_PAT}@github.com/mphstar/sendang-museum.git main
               git reset --hard FETCH_HEAD
 
               if command -v composer &> /dev/null; then
