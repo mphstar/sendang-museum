@@ -370,6 +370,149 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
     const latNum = toNum((data as any).latitude);
     const lngNum = toNum((data as any).longitude);
 
+    const [isGeocoding, setIsGeocoding] = useState(false);
+
+    // Helper: Reverse Geocode (Coordinates -> Address)
+    const fetchAddressFromCoords = async (lat: number, lng: number): Promise<string | null> => {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+                headers: { 'Accept-Language': 'id,en' }
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (json && json.display_name) {
+                    return json.display_name;
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching address:', err);
+        }
+        return null;
+    };
+
+    // Helper: Parse Google Maps Link for lat, lng
+    const parseGoogleMapsUrl = (url: string): { lat: number; lng: number } | null => {
+        if (!url) return null;
+        // Check @lat,lng format
+        const matchAt = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (matchAt) {
+            return { lat: parseFloat(matchAt[1]), lng: parseFloat(matchAt[2]) };
+        }
+        // Check q=lat,lng or ll=lat,lng format
+        const matchQ = url.match(/[?&](?:q|ll|query|center)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (matchQ) {
+            return { lat: parseFloat(matchQ[1]), lng: parseFloat(matchQ[2]) };
+        }
+        return null;
+    };
+
+    // Handle Google Maps Link change & auto-sync
+    const handleGoogleMapsLinkChange = async (url: string) => {
+        setData('google_maps_link', url);
+        const coords = parseGoogleMapsUrl(url);
+        if (coords) {
+            setIsGeocoding(true);
+            toast.info('Menyinkronkan lokasi dari Google Maps...', { id: 'sync-gmaps' });
+            
+            const fetchedAddress = await fetchAddressFromCoords(coords.lat, coords.lng);
+            
+            setData(prev => ({
+                ...prev,
+                google_maps_link: url,
+                latitude: coords.lat,
+                longitude: coords.lng,
+                address: fetchedAddress || prev.address
+            }));
+            
+            setIsGeocoding(false);
+            if (fetchedAddress) {
+                toast.success('Koordinat & Alamat disinkronkan dari Google Maps!');
+            } else {
+                toast.success('Koordinat berhasil diekstrak dari Google Maps!');
+            }
+        }
+    };
+
+    // Handle Search Address on Map (with smart multi-fallback & Plus Code stripping)
+    const handleSearchAddressOnMap = async () => {
+        if (!data.address) {
+            toast.error('Masukkan Alamat Lengkap terlebih dahulu');
+            return;
+        }
+        setIsGeocoding(true);
+        toast.info('Mencari titik lokasi di peta...', { id: 'search-addr' });
+
+        // Strip Plus Codes (e.g. VPMR+Q6Q, 8Q7X+9V, etc)
+        const cleanAddress = (text: string) => {
+            return text
+                .replace(/^[A-Z0-9]{4,8}\+[A-Z0-9]{2,4},?\s*/i, '')
+                .trim();
+        };
+
+        const targetAddress = cleanAddress(data.address);
+        const parts = targetAddress.split(',').map(p => p.trim()).filter(Boolean);
+
+        // Build progressive fallback queries from specific to broader
+        const searchQueries = [
+            targetAddress,
+            parts.slice(Math.max(0, parts.length - 4)).join(', '),
+            parts.slice(Math.max(0, parts.length - 3)).join(', '),
+            parts.slice(Math.max(0, parts.length - 2)).join(', '),
+        ].filter((q, idx, self) => q && self.indexOf(q) === idx);
+
+        try {
+            for (const query of searchQueries) {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+                    headers: { 'Accept-Language': 'id,en' }
+                });
+                if (res.ok) {
+                    const results = await res.json();
+                    if (results && results.length > 0) {
+                        const lat = parseFloat(results[0].lat);
+                        const lng = parseFloat(results[0].lon);
+                        setData(prev => ({
+                            ...prev,
+                            latitude: lat,
+                            longitude: lng,
+                            google_maps_link: prev.google_maps_link || `https://www.google.com/maps?q=${lat},${lng}`
+                        }));
+                        toast.success(`Titik lokasi ditemukan di peta (${query})!`);
+                        setIsGeocoding(false);
+                        return;
+                    }
+                }
+            }
+            toast.error('Lokasi tidak ditemukan, coba persingkat nama desa/kecamatan');
+        } catch (e) {
+            toast.error('Gagal mencari lokasi di peta');
+        } finally {
+            setIsGeocoding(false);
+        }
+    };
+
+    // Handle Location Change from Leaflet Map Click
+    const handleLocationChange = async (lat: number, lng: number, addressFromMap?: string) => {
+        let finalAddress = addressFromMap;
+        
+        if (!finalAddress) {
+            finalAddress = await fetchAddressFromCoords(lat, lng) || undefined;
+        }
+
+        setData(prev => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+            address: finalAddress || prev.address,
+            google_maps_link: prev.google_maps_link || `https://www.google.com/maps?q=${lat},${lng}`
+        }));
+
+        if (finalAddress) {
+            toast.success('Alamat Lengkap & Koordinat disinkronkan dari peta!');
+        } else {
+            toast.success('Titik lokasi diperbarui!');
+        }
+    };
+
     return (
         <div className='flex h-full w-full flex-col'>
             <div className='border-b px-4 lg:px-6 py-4 flex flex-wrap gap-3 items-center justify-between bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
@@ -420,8 +563,24 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
                         </div>
                     </div>
                     <div className='space-y-2'>
-                        <Label className='text-sm font-medium'>Alamat Lengkap</Label>
-                        <Textarea value={data.address} onChange={e => setData('address', e.target.value)} />
+                        <div className='flex items-center justify-between'>
+                            <Label className='text-sm font-medium'>Alamat Lengkap</Label>
+                            <Button 
+                                type='button' 
+                                variant='outline' 
+                                size='sm' 
+                                disabled={isGeocoding || !data.address}
+                                onClick={handleSearchAddressOnMap}
+                                className='h-6 text-[10px] px-2 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer'
+                            >
+                                {isGeocoding ? 'Mencari...' : '🎯 Cari di Peta'}
+                            </Button>
+                        </div>
+                        <Textarea 
+                            value={data.address} 
+                            onChange={e => setData('address', e.target.value)} 
+                            placeholder="Alamat lengkap museum (otomatis terisi saat klik peta)"
+                        />
                         {errors.address && <p className='text-xs text-red-500'>{errors.address}</p>}
                     </div>
                     <div className='grid grid-cols-2 gap-4'>
@@ -447,8 +606,15 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
                         </div>
                     </div>
                     <div className='space-y-2'>
-                        <Label className='text-sm font-medium'>Link Google Maps</Label>
-                        <Input value={data.google_maps_link} onChange={e => setData('google_maps_link', e.target.value)} placeholder="https://maps.google.com/..." />
+                        <Label className='text-sm font-medium flex justify-between items-center'>
+                            <span>Link Google Maps</span>
+                            <span className='text-[10px] text-muted-foreground font-normal'>Auto-sync ke peta & alamat</span>
+                        </Label>
+                        <Input 
+                            value={data.google_maps_link} 
+                            onChange={e => handleGoogleMapsLinkChange(e.target.value)} 
+                            placeholder="Paste link Google Maps (cth: https://maps.google.com/?q=-8.17,113.70)..." 
+                        />
                         {errors.google_maps_link && <p className='text-xs text-red-500'>{errors.google_maps_link}</p>}
                     </div>
                     <div className='space-y-2'>
@@ -487,24 +653,53 @@ export default function MuseumFormBase({ item, mode, overlays = [] }: Props) {
                         </select>
                     </div>
                     <div className='space-y-2'>
-                        <Label className='text-sm font-medium'>Lokasi Museum</Label>
+                        <Label className='text-sm font-medium'>Lokasi Museum & Koordinat</Label>
                         <p className='text-xs text-muted-foreground mb-2'>
-                            Klik pada peta untuk menentukan lokasi museum. Koordinat akan tersimpan otomatis.
+                            Klik pada peta atau masukkan Latitude & Longitude secara manual. Alamat lengkap akan otomatis terisi.
                         </p>
+                        
+                        {/* Input Manual Latitude & Longitude */}
+                        <div className='grid grid-cols-2 gap-2 mb-2'>
+                            <div className='space-y-1'>
+                                <Label className='text-xs font-normal text-muted-foreground'>Latitude</Label>
+                                <Input 
+                                    type='number' 
+                                    step='any'
+                                    value={data.latitude ?? ''} 
+                                    onChange={e => {
+                                        const val = e.target.value ? parseFloat(e.target.value) : null;
+                                        setData('latitude', val);
+                                        if (val !== null && data.longitude !== null) {
+                                            handleLocationChange(val, data.longitude);
+                                        }
+                                    }} 
+                                    placeholder="e.g. -8.172445" 
+                                />
+                            </div>
+                            <div className='space-y-1'>
+                                <Label className='text-xs font-normal text-muted-foreground'>Longitude</Label>
+                                <Input 
+                                    type='number' 
+                                    step='any'
+                                    value={data.longitude ?? ''} 
+                                    onChange={e => {
+                                        const val = e.target.value ? parseFloat(e.target.value) : null;
+                                        setData('longitude', val);
+                                        if (data.latitude !== null && val !== null) {
+                                            handleLocationChange(data.latitude, val);
+                                        }
+                                    }} 
+                                    placeholder="e.g. 113.700123" 
+                                />
+                            </div>
+                        </div>
+
                         <LocationPicker
                             latitude={latNum}
                             longitude={lngNum}
-                            onLocationChange={(lat, lng) => {
-                                setData('latitude', lat);
-                                setData('longitude', lng);
-                            }}
+                            onLocationChange={handleLocationChange}
                             className="h-48 w-full"
                         />
-                        {(latNum !== null && lngNum !== null) && (
-                            <div className='text-xs text-muted-foreground mt-2'>
-                                Koordinat: {latNum.toFixed(6)}, {lngNum.toFixed(6)}
-                            </div>
-                        )}
                         {errors.latitude && <p className='text-xs text-red-500'>{errors.latitude}</p>}
                         {errors.longitude && <p className='text-xs text-red-500'>{errors.longitude}</p>}
                     </div>

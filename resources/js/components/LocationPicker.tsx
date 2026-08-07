@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 interface LocationPickerProps {
   latitude?: number | null;
   longitude?: number | null;
-  onLocationChange: (lat: number, lng: number) => void;
+  onLocationChange: (lat: number, lng: number, address?: string) => void;
   className?: string;
 }
 
@@ -30,7 +30,7 @@ export default function LocationPicker({
         if (cancelled) return;
 
         const L = leafletModule.default;
-        const { MapContainer, TileLayer, Marker, useMapEvents } = reactLeafletModule;
+        const { MapContainer, TileLayer, Marker, useMapEvents, useMap } = reactLeafletModule;
 
         // Configure default icon for Leaflet
         delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -40,13 +40,35 @@ export default function LocationPicker({
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
         });
 
+        function RecenterMap({ position }: { position: [number, number] | null }) {
+          const map = useMap();
+          useEffect(() => {
+            if (position) {
+              map.flyTo(position, Math.max(map.getZoom(), 15), { animate: true });
+            }
+          }, [position, map]);
+          return null;
+        }
+
         function LocationMarker({ position, onLocationChange }: { 
           position: [number, number] | null; 
-          onLocationChange: (lat: number, lng: number) => void;
+          onLocationChange: (lat: number, lng: number, address?: string) => void;
         }) {
           useMapEvents({
-            click(e: any) {
-              onLocationChange(e.latlng.lat, e.latlng.lng);
+            async click(e: any) {
+              const lat = e.latlng.lat;
+              const lng = e.latlng.lng;
+              
+              let address = undefined;
+              try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await response.json();
+                address = data.display_name;
+              } catch (e) {
+                console.error("Geocoding failed", e);
+              }
+              
+              onLocationChange(lat, lng, address);
             },
           });
 
@@ -70,15 +92,15 @@ export default function LocationPicker({
             }
           }, [latitude, longitude]);
 
-          const handleLocationChange = (lat: number, lng: number) => {
+          const handleLocationChange = (lat: number, lng: number, address?: string) => {
             setPosition([lat, lng]);
-            onLocationChange(lat, lng);
+            onLocationChange(lat, lng, address);
           };
 
           return (
             <MapContainer
               center={center}
-              zoom={5}
+              zoom={latitude && longitude ? 15 : 5}
               style={{ height: '100%', width: '100%' }}
               className="rounded-md border"
             >
@@ -90,6 +112,7 @@ export default function LocationPicker({
                 position={position} 
                 onLocationChange={handleLocationChange}
               />
+              <RecenterMap position={position} />
             </MapContainer>
           );
         }
@@ -138,8 +161,13 @@ export default function LocationPicker({
 
   return (
     <div className={className}>
-      <div className="mb-2 text-xs text-gray-600">
-        Klik pada peta untuk menentukan lokasi museum
+      <div className="mb-2 text-xs text-gray-600 flex justify-between items-center">
+        <span>Klik pada peta untuk menentukan lokasi museum</span>
+        {latitude && longitude && (
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+            {latitude.toFixed(6)}, {longitude.toFixed(6)}
+          </span>
+        )}
       </div>
       <MapComponent
         latitude={latitude}
